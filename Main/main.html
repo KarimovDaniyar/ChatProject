@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YUChat</title>
+    <link rel="stylesheet" href="main.css"/>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar with contacts -->
+        <div class="sidebar"> 
+            <div class="search">
+                <input type="text" class="search-contact" placeholder="Search here...">
+                <button class="search-btn"><ion-icon name="search-outline"></ion-icon></button>
+            </div>
+            
+            <div class="contacts-list">
+                <div class="contact active">
+                    <div class="contact-avatar">
+                        <img src="https://via.placeholder.com/40" alt="Alym">
+                    </div>
+                    <div class="contact-info">
+                        <h3>Alym</h3>
+                        <p>Last message...</p>
+                    </div>
+                    <div class="contact-status online"></div>
+                </div>
+                
+                <div class="contact">
+                    <div class="contact-avatar">
+                        <img src="https://via.placeholder.com/40" alt="Akbar">
+                    </div>
+                    <div class="contact-info">
+                        <h3>Akbar</h3>
+                        <p>Last message...</p>
+                    </div>
+                    <div class="contact-status"></div>
+                </div>
+                
+                <div class="contact">
+                    <div class="contact-avatar">
+                        <img src="https://via.placeholder.com/40" alt="Talant">
+                    </div>
+                    <div class="contact-info">
+                        <h3>Talant</h3>
+                        <p>Last message...</p>
+                    </div>
+                    <div class="contact-status online"></div>
+                </div>
+                
+                <div class="contact">
+                    <div class="contact-avatar">
+                        <img src="https://via.placeholder.com/40" alt="Ishak">
+                    </div>
+                    <div class="contact-info">
+                        <h3>Ishak</h3>
+                        <p>Last message...</p>
+                    </div>
+                    <div class="contact-status"></div>
+                </div>
+                
+                <div class="contact">
+                    <div class="contact-avatar">
+                        <img src="https://via.placeholder.com/40" alt="Daniyar">
+                    </div>
+                    <div class="contact-info">
+                        <h3>Daniyar</h3>
+                        <p>Last message...</p>
+                    </div>
+                    <div class="contact-status online"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat area -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <div class="current-contact">
+                    <div class="contact-avatar">
+                        <img src="https://via.placeholder.com/40" alt="Alym">
+                    </div>
+                    <div class="contact-info">
+                        <h3>Alym</h3>
+                        <p>Online</p>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button><ion-icon name="call-outline"></ion-icon></button>
+                    <button><ion-icon name="ellipsis-vertical-outline"></ion-icon></button>
+                </div>
+            </div>
+            
+            <div class="messages">
+                <!-- Messages will be added dynamically -->
+            </div>
+            
+            <div class="message-input">
+                <button><ion-icon name="happy-outline"></ion-icon></button>
+                <input type="text" class="chat-input" required placeholder="Enter message...">
+                <button><ion-icon name="attach-outline"></ion-icon></button>
+                <button type="submit" class="send-button"><ion-icon name="send-outline"></ion-icon></button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="main.js"></script>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</body>
+</html>
