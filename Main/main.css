@@ -1,3 +1,4 @@
+/* Сброс стилей и основные настройки */
 * {
     margin: 0;
     padding: 0;
@@ -5,42 +6,33 @@
     font-family: 'Poppins', sans-serif;
 }
 
+/* Стили для страницы */
 body {
-    background-color: #f0f2f5;
     height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
+/* Основной контейнер чата */
 .container {
     display: flex;
-    width: 90%;
-    height: 90vh;
-    background-color: white;
-    border-radius: 12px;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
-/* Sidebar Styles */
+/* Стили для боковой панели (сайдбара) */
 .sidebar {
     width: 350px;
     height: 100%;
-    background-color: #ffffff;
+    background-color: rgba(34, 61, 85, 0.95);
     border-right: 1px solid #e9edef;
     display: flex;
     flex-direction: column;
 }
 
-.profile {
-    padding: 15px;
-    display: flex;
-    align-items: center;
-    background-color: rgba(34, 61, 85, 0.95);
-    color: white;
-}
-
+/* Стили для аватара в профиле */
 .avatar img {
     width: 40px;
     height: 40px;
@@ -49,40 +41,74 @@ body {
     margin-right: 10px;
 }
 
+/* Стили для имени пользователя */
 .user-name {
     font-weight: 500;
 }
 
+/* Стили для блока поиска */
 .search {
     padding: 10px;
-    background-color: #f6f6f6;
+    background-color: rgba(34, 61, 85, 0.95);
     display: flex;
     align-items: center;
 }
 
+/* Стили для обертки поля поиска */
+.search-input-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+/* Стили для иконки поиска внутри поля */
+.search-icon {
+    position: absolute;
+    left: 10px;
+    color: #667781;
+    font-size: 20px;
+}
+
+/* Стили для поля ввода поиска с отступом для иконки */
 .search-contact {
     flex: 1;
-    padding: 8px 12px;
+    padding: 8px 12px 8px 35px; /* Добавляем отступ слева для иконки */
     border: 1px solid #e0e0e0;
     border-radius: 20px;
     outline: none;
     font-size: 14px;
+    width: 100%;
 }
 
+/* Стили для кнопки поиска */
 .search-btn {
     background: transparent;
     border: none;
-    color: #54656f;
+    color: #ffffff;
     margin-left: 5px;
     cursor: pointer;
     padding: 5px;
+    font-size:28px
 }
 
+/* Стили для кнопки меню */
+.menu-btn {
+    background: transparent;
+    border: none;
+    color:#ffffff;
+    cursor: pointer;
+    padding: 5px;
+    font-size: 28px;
+}
+
+/* Стили для списка контактов */
 .contacts-list {
     flex: 1;
     overflow-y: auto;
 }
 
+/* Стили для элемента контакта */
 .contact {
     display: flex;
     align-items: center;
@@ -92,14 +118,17 @@ body {
     position: relative;
 }
 
+/* Стили при наведении на контакт */
 .contact:hover {
-    background-color: #f5f5f5;
+    background-color: rgba(60, 90, 115, 0.95); /* Светлее чем rgba(34, 61, 85, 0.95) */
 }
 
+/* Стили для активного контакта */
 .contact.active {
-    background-color: #ebebeb;
+    background-color: rgba(60, 90, 115, 0.95);
 }
 
+/* Стили для аватара контакта */
 .contact-avatar img {
     width: 40px;
     height: 40px;
@@ -107,17 +136,20 @@ body {
     object-fit: cover;
 }
 
+/* Стили для информации о контакте */
 .contact-info {
     margin-left: 15px;
     flex: 1;
 }
 
+/* Стили для имени контакта */
 .contact-info h3 {
     font-size: 16px;
     margin-bottom: 2px;
-    color: #111b21;
+    color: #ffffff;
 }
 
+/* Стили для последнего сообщения */
 .contact-info p {
     font-size: 13px;
     color: #667781;
@@ -127,26 +159,32 @@ body {
     max-width: 200px;
 }
 
+/* Стили для индикатора статуса */
 .contact-status {
+    position: absolute;
+    top: 13px;
+    right: 295px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
     background-color: #d1d1d1;
-    margin-left: 10px;
+    border: 1px solid rgba(34, 61, 85, 0.95);
 }
 
+/* Стили для статуса "онлайн" */
 .contact-status.online {
     background-color: #25d366;
 }
 
-/* Chat Area Styles */
+/* Стили для области чата */
 .chat-area {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-color: #efeae2;
+    background-color: rgba(34, 61, 85, 0.95);
 }
 
+/* Стили для заголовка чата */
 .chat-header {
     display: flex;
     justify-content: space-between;
@@ -156,15 +194,18 @@ body {
     color: white;
 }
 
+/* Стили для текущего контакта в заголовке */
 .current-contact {
     display: flex;
     align-items: center;
 }
 
+/* Стили для кнопок действий в заголовке */
 .chat-actions {
     display: flex;
 }
 
+/* Стили для отдельных кнопок действий */
 .chat-actions button {
     background: transparent;
     color: white;
@@ -175,49 +216,171 @@ body {
     padding: 5px;
 }
 
+/* Стили для области сообщений */
 .messages {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
-.message-input {
+/* Общие стили для сообщений */
+.message {
     display: flex;
-    align-items: center;
+    margin-bottom: 10px;
+    max-width: 65%;
+}
+
+/* Стиль для входящих сообщений (от собеседника) */
+.message.incoming {
+    align-self: flex-start;
+    flex-direction: row;
+}
+
+/* Стиль для исходящих сообщений (от пользователя) */
+.message.outgoing {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+/* Стиль для аватара в сообщении */
+.message-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 8px;
+    align-self: flex-end;
+}
+
+.message-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Стиль для пузыря сообщения */
+.message-bubble {
+    padding: 8px 12px;
+    border-radius: 10px;
+    position: relative;
+}
+
+/* Пузырь для входящих сообщений */
+.incoming .message-bubble {
+    background-color:rgba(212, 214, 201, 1);
+    border-top-left-radius: 0;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+/* Пузырь для исходящих сообщений */
+.outgoing .message-bubble {
+    background-color: #dcf8c6;
+    border-top-right-radius: 0;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+/* Стиль для текста сообщения */
+.message-bubble p {
+    margin: 0;
+    padding: 0;
+    color: #303030;
+    font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+/* Стиль для времени отправки */
+.message-time {
+    display: block;
+    font-size: 11px;
+    color: #8c8c8c;
+    margin-top: 3px;
+    text-align: right;
+}
+
+/* Стиль для изображений в сообщениях */
+.message-image {
+    max-width: 250px;
+    max-height: 200px;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+
+/* Стили для контейнера ввода сообщений */
+.message-input {
+    display: flex; /* Использование flexbox для выравнивания элементов в линию */
+    align-items: center; /* Вертикальное центрирование элементов */
     background-color: #f0f0f0;
     padding: 10px 20px;
+    justify-content: space-between; /* Равномерное распределение элементов по горизонтали */
+    gap: 10px; /* Отступ между элементами для визуального разделения */
+    background-color: rgba(34, 61, 85, 0.95);
 }
 
+/* Стили для обертки поля ввода - новый элемент для правильного позиционирования */
+.input-wrapper {
+    position: relative; /* Необходимо для абсолютного позиционирования кнопки эмодзи внутри */
+    display: flex;
+    align-items: center;
+    flex-grow: 1; /* Позволяет обертке расширяться и занимать доступное пространство */
+    width: auto;
+}
+
+/* Стили для кнопок в области ввода */
 .message-input button {
     background: transparent;
     border: none;
-    color: #54656f;
+    color: rgba(212, 214, 201, 1);
     cursor: pointer;
     font-size: 24px;
     padding: 5px;
+    display: flex; /* Использование flexbox для центрирования иконок внутри кнопок */
+    align-items: center; /* Вертикальное центрирование иконок */
+    justify-content: center; /* Горизонтальное центрирование иконок */
+    min-width: 40px; /* Фиксированная минимальная ширина для единообразия кнопок */
+    height: 40px; /* Фиксированная высота для единообразия кнопок */
 }
 
-.message-input input {
+/* Стили для поля ввода чата */
+.chat-input {
     flex: 1;
     padding: 10px 15px;
-    border: none;
-    border-radius: 20px;
+    padding-right: 40px; /* Дополнительный отступ справа для кнопки эмодзи */
+    border: 2px solid rgba(212, 214, 201, 1);
+    border-radius: 10px;
     outline: none;
-    margin: 0 10px;
+    margin: 0;
+    width: 100%; /* Занимает всю ширину обертки */
+    background-color: rgba(34, 61, 85, 0.95);
+    color: #ffffff;
 }
 
+/* Стили для кнопки эмодзи - абсолютное позиционирование в поле ввода */
+.emoji-button {
+    position: absolute; /* Позиционирование относительно .input-wrapper */
+    right: 10px; /* Отступ от правого края */
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    top: 50%; /* Для вертикального центрирования */
+    transform: translateY(-50%); /* Компенсация половины собственной высоты для точного центрирования */
+    padding: 0;
+    font-size: 24px;
+}
+
+/* Стили для кнопки отправки */
 .send-button {
-    color: #fff;
-    background-color: rgba(34, 61, 85, 0.95) !important;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-/* Responsive adjustments */
+/* Адаптивные настройки для мобильных устройств */
 @media (max-width: 768px) {
     .sidebar {
         width: 80px;
