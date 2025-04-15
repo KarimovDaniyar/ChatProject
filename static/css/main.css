@@ -298,6 +298,7 @@ body {
     padding: 10px 16px;
     background-color: rgba(34, 61, 85, 0.95);
     color: white;
+    border-bottom: 1px solid white;
 }
 
 /* Стили для текущего контакта в заголовке */
@@ -420,10 +421,11 @@ body {
     display: flex; /* Использование flexbox для выравнивания элементов в линию */
     align-items: center; /* Вертикальное центрирование элементов */
     background-color: #f0f0f0;
-    padding: 10px 20px;
+    padding: 15px 20px;
     justify-content: space-between; /* Равномерное распределение элементов по горизонтали */
     gap: 10px; /* Отступ между элементами для визуального разделения */
     background-color: rgba(34, 61, 85, 0.95);
+    border-top: 1px solid white;
 }
 
 /* Стили для обертки поля ввода - новый элемент для правильного позиционирования */
@@ -610,7 +612,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 10px;
 }
 
 .form-icon {
@@ -668,6 +669,58 @@ body {
 
 .cancel-btn:hover {
     background-color: rgba(192, 194, 181, 1);
+}
+
+.user-name {
+    background-color: rgba(24, 47, 67, 1);
+}
+
+.user-menu {
+    position: absolute;
+    top: 67px;
+    right: 5px;
+    width: 200px;
+    background-color: rgba(24, 47, 67, 1);
+    z-index: 1000;
+    overflow: hidden;
+    transform: scale(0);
+    transition: transform 0.3s ease;
+}
+
+.user-menu.active {
+    transform: scale(1);
+}
+
+.user-menu.hidden {
+    display: none;
+}
+
+.user-menu button {
+    display: flex;
+    width: 100%;
+    padding: 12px 15px;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    align-items: center;
+}
+
+.user-menu-icon {
+    font-size: 20px;
+    margin-right: 10px;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.user-menu button:hover {
+    background-color: rgba(60, 90, 115, 0.95);  
+}
+
+.user-menu .clear-btn {
+    border-bottom: 1px solid white;
 }
 
 /* Адаптивные настройки для мобильных устройств */
