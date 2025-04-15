@@ -1,143 +1,278 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YUChat</title>
     <!-- Подключение основных стилей CSS -->
-    <link rel="stylesheet" href="main.css"/>
+    <link rel="stylesheet" href="../static/css/main.css" />
     <!-- Добавление Material UI иконок -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-    <script src="https://unpkg.com/@mui/material@latest/umd/material-ui.development.js" crossorigin="anonymous"></script>
-</head>
-<body>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    />
+    <script
+      src="https://unpkg.com/@mui/material@latest/umd/material-ui.development.js"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
     <!-- Основной контейнер чата -->
     <div class="container">
-        <!-- Левая боковая панель (сайдбар) с контактами -->
-        <div class="sidebar"> 
-            <!-- Блок поиска с кнопкой меню и кнопкой поиска -->
-            <div class="search">
-                <!-- Кнопка для открытия/закрытия бокового меню -->
-                <button class="menu-btn"><ion-icon name="menu-outline"></ion-icon></button>
-                <!-- Поле ввода для поиска контактов с поиск-иконкой внутри -->
-                <div class="search-input-wrapper">
-                    <i class="material-icons search-icon">search</i>
-                    <input type="text" class="search-contact" placeholder= "Search here...">
-                </div>
-            </div>
-            
-            <!-- Список контактов -->
-            <div class="contacts-list">
-                <!-- Контакт с активным статусом (выделен как текущий чат) -->
-                <div class="contact active">
-                    <div class="contact-avatar">
-                        <img src="grib.png" alt="Alym">
-                    </div>
-                    <div class="contact-info">
-                        <h3>Alym</h3>
-                        <p>Last message...</p>
-                    </div>
-                    <!-- Индикатор онлайн-статуса (зеленый кружок) -->
-                    <div class="contact-status online"></div>
-                </div>
-                
-                <!-- Контакт offline (серый индикатор статуса) -->
-                <div class="contact">
-                    <div class="contact-avatar">
-                        <img src="ananas.png" alt="Akbar">
-                    </div>
-                    <div class="contact-info">
-                        <h3>Akbar</h3>
-                        <p>Last message...</p>
-                    </div>
-                    <div class="contact-status"></div>
-                </div>
-                
-                <!-- Контакт online (зеленый индикатор статуса) -->
-                <div class="contact">
-                    <div class="contact-avatar">
-                        <img src="avatar1195.jpg" alt="Talant">
-                    </div>
-                    <div class="contact-info">
-                        <h3>Talant</h3>
-                        <p>Last message...</p>
-                    </div>
-                    <div class="contact-status online"></div>
-                </div>
-                
-                <!-- Контакт offline (серый индикатор статуса) -->
-                <div class="contact">
-                    <div class="contact-avatar">
-                        <img src="avatar2272.jpg" alt="Ishak">
-                    </div>
-                    <div class="contact-info">
-                        <h3>Ishak</h3>
-                        <p>Last message...</p>
-                    </div>
-                    <div class="contact-status"></div>
-                </div>
-                
-                <!-- Контакт online (зеленый индикатор статуса) -->
-                <div class="contact">
-                    <div class="contact-avatar">
-                        <img src="image (1).png" alt="Daniyar">
-                    </div>
-                    <div class="contact-info">
-                        <h3>Daniyar</h3>
-                        <p>Last message...</p>
-                    </div>
-                    <div class="contact-status online"></div>
-                </div>
-            </div>
+      <!-- Левая боковая панель (сайдбар) с контактами -->
+      <div class="sidebar">
+        <!-- Блок поиска с кнопкой меню и кнопкой поиска -->
+        <div class="search">
+          <!-- Кнопка для открытия/закрытия бокового меню -->
+          <button id="menu-btn" class="menu-btn">
+            <ion-icon name="menu-outline"></ion-icon>
+          </button>
+          <!-- Поле ввода для поиска контактов с поиск-иконкой внутри -->
+          <div class="search-input-wrapper">
+            <i class="material-icons search-icon">search</i>
+            <input
+              type="text"
+              class="search-contact"
+              placeholder="Search here..."
+            />
+          </div>
         </div>
-        
-        <!-- Основная область чата -->
-        <div class="chat-area">
-            <!-- Шапка чата с информацией о текущем контакте -->
-            <div class="chat-header">
-                <div class="current-contact">
-                    <div class="contact-avatar">
-                        <img src="avatar.png" alt="Alym">
-                    </div>
-                    <div class="contact-info">
-                        <h3>Alym</h3>
-                        <p>Online</p>
-                    </div>
-                </div>
-                <!-- Кнопки действий в чате (меню опций) -->
-                <div class="chat-actions">
-                    <button><ion-icon name="ellipsis-vertical"></ion-icon></button>
-                </div>
+
+        <div id="menu" class="menu hidden">
+          <div id="profile" class="profile">
+            <div class="profile-avatar">
+              <img src="/static/images/avatar.png" alt="Alym" />
             </div>
-            
-            <!-- Область сообщений (здесь будут отображаться сообщения) -->
-            <div class="messages">
-                <!-- Сообщения будут добавлены динамически с помощью JavaScript -->
+            <div class="profile-info">
+              <button id="edit-profile" class="edit-profile-btn">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+              <h3>Den</h3>
+              <p>karimovdaniyar224@gmail.com</p>
             </div>
-            
-            <!-- Поле ввода сообщений с кнопками -->
-            <div class="message-input">
-                <!-- Кнопка для прикрепления изображений к сообщению -->
-                <button><ion-icon name="images-outline"></ion-icon></button>
-                
-                <!-- Обертка для поля ввода и кнопки эмодзи (позволяет правильно выровнять) -->
-                <div class="input-wrapper">
-                    <!-- Поле для ввода текста сообщения -->
-                    <input id="test" type="text" class="chat-input" required placeholder="Enter message...">
-                    <!-- Кнопка выбора эмодзи (позиционирована внутри поля ввода) -->
-                    <button type="button" class="emoji-button"><ion-icon name="happy-outline" class="emoji-icon"></ion-icon></button>
-                </div>
-                
-                <!-- Кнопка отправки сообщения -->
-                <button type="submit" class="send-button"><ion-icon name="send-outline"></ion-icon></button>
-            </div>
+          </div>
+          <div class="menu-options">
+            <button id="add-group">
+              <ion-icon name="people-outline" class="menu-icon"></ion-icon> Add
+              Group
+            </button>
+            <button id="add-user">
+              <ion-icon name="person-outline" class="menu-icon"></ion-icon> Add
+              User
+            </button>
+            <button id="logout">
+              <ion-icon name="exit-outline" class="menu-icon"></ion-icon> Logout
+            </button>
+          </div>
         </div>
+
+        <!-- Список контактов -->
+        <div class="contacts-list">
+          <!-- Контакт с активным статусом (выделен как текущий чат) -->
+          <div class="contact active">
+            <div class="contact-avatar">
+              <img src="/static/images/avatar.png" alt="Alym" />
+            </div>
+            <div class="contact-info">
+              <h3>Alym</h3>
+              <p>Last message...</p>
+            </div>
+            <!-- Индикатор онлайн-статуса (зеленый кружок) -->
+            <div class="contact-status online"></div>
+          </div>
+
+          <!-- Контакт offline (серый индикатор статуса) -->
+          <div class="contact">
+            <div class="contact-avatar">
+              <img src="/static/images/avatar.png" alt="Akbar" />
+            </div>
+            <div class="contact-info">
+              <h3>Akbar</h3>
+              <p>Last message...</p>
+            </div>
+            <div class="contact-status"></div>
+          </div>
+
+          <!-- Контакт online (зеленый индикатор статуса) -->
+          <div class="contact">
+            <div class="contact-avatar">
+              <img src="/static/images/avatar.png" alt="Talant" />
+            </div>
+            <div class="contact-info">
+              <h3>Talant</h3>
+              <p>Last message...</p>
+            </div>
+            <div class="contact-status online"></div>
+          </div>
+
+          <!-- Контакт offline (серый индикатор статуса) -->
+          <div class="contact">
+            <div class="contact-avatar">
+              <img src="/static/images/avatar.png" alt="Ishak" />
+            </div>
+            <div class="contact-info">
+              <h3>Iskhak</h3>
+              <p>Last message...</p>
+            </div>
+            <div class="contact-status"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Основная область чата -->
+      <div class="chat-area">
+        <!-- Шапка чата с информацией о текущем контакте -->
+        <div class="chat-header">
+          <div class="current-contact">
+            <div class="contact-avatar">
+              <img src="/static/images/avatar.png" alt="Alym" />
+            </div>
+            <div class="contact-info">
+              <h3>Alym</h3>
+              <p>Online</p>
+            </div>
+          </div>
+          <!-- Кнопки действий в чате (меню опций) -->
+          <div class="chat-actions">
+            <button><ion-icon name="ellipsis-vertical"></ion-icon></button>
+          </div>
+        </div>
+
+        <!-- Область сообщений (здесь будут отображаться сообщения) -->
+        <div class="messages">
+          <!-- Сообщения будут добавлены динамически с помощью JavaScript -->
+        </div>
+
+        <!-- Поле ввода сообщений с кнопками -->
+        <div class="message-input">
+          <!-- Кнопка для прикрепления изображений к сообщению -->
+          <button><ion-icon name="images-outline"></ion-icon></button>
+
+          <!-- Обертка для поля ввода и кнопки эмодзи (позволяет правильно выровнять) -->
+          <div class="input-wrapper">
+            <!-- Поле для ввода текста сообщения -->
+            <input
+              id="test"
+              type="text"
+              class="chat-input"
+              required
+              placeholder="Enter message..."
+            />
+            <!-- Кнопка выбора эмодзи (позиционирована внутри поля ввода) -->
+            <button type="button" class="emoji-button">
+              <ion-icon name="happy-outline" class="emoji-icon"></ion-icon>
+            </button>
+          </div>
+
+          <!-- Кнопка отправки сообщения -->
+          <button type="submit" class="send-button">
+            <ion-icon name="send-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
     </div>
-    
+
+    <!-- Контейнер для добавления нового контакта -->
+    <div id="add-user-container" class="modal-container hidden">
+      <div class="modal-content">
+        <h2>Новый Контакт</h2>
+        <div class="new-contact-form">
+          <div class="form-row">
+            <div class="contact-icon">
+              <ion-icon name="person-outline" class="form-icon"></ion-icon>
+            </div>
+            <input type="text" id="new-contact-name" placeholder="Имя" />
+          </div>
+          <div class="form-buttons">
+            <button id="cancel-add-contact" class="action-btn cancel-btn">
+              Отмена
+            </button>
+            <button id="add-contact-btn" class="action-btn add-btn">
+              Добавить
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Контейнер для добавления новой группы -->
+    <div id="add-group-container" class="modal-container hidden">
+      <div class="modal-content">
+        <h2>Новая Группа</h2>
+        <div class="new-contact-form">
+          <div class="form-row">
+            <div class="contact-icon">
+              <ion-icon name="people-outline" class="form-icon"></ion-icon>
+            </div>
+            <input
+              type="text"
+              id="new-contact-name"
+              placeholder="Название группы"
+            />
+          </div>
+          <div class="form-buttons">
+            <button id="cancel-add-group" class="action-btn cancel-btn">
+              Отмена
+            </button>
+            <button id="add-group-btn" class="action-btn add-btn">
+              Добавить
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Контейнер для редактирования профиля -->
+    <div id="edit-profile-container" class="modal-container hidden">
+      <div class="modal-content edit-profile-modal">
+        <div class="edit-profile-header">
+          <button id="cancel-edit-profile" class="header-btn">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+          </button>
+          <button id="save-profile" class="header-btn">
+            <ion-icon name="checkmark-outline"></ion-icon>
+          </button>
+        </div>
+        <div class="edit-profile-avatar">
+          <img src="/static/images/avatar.png" alt="User" />
+        </div>
+        <div class="edit-profile-form">
+          <div class="edit-form-row">
+            <div class="edit-icon">
+              <ion-icon name="person-outline" class="form-icon"></ion-icon>
+            </div>
+            <input
+              type="text"
+              id="edit-username"
+              placeholder="Имя пользователя"
+            />
+          </div>
+          <div class="edit-form-row">
+            <div class="edit-icon">
+              <ion-icon name="mail-outline" class="form-icon"></ion-icon>
+            </div>
+            <input type="email" id="edit-email" placeholder="Email" />
+          </div>
+          <div class="edit-form-row">
+            <div class="edit-icon">
+              <ion-icon name="lock-closed-outline" class="form-icon"></ion-icon>
+            </div>
+            <input type="password" id="edit-password" placeholder="Пароль" />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Подключение JavaScript для функциональности чата -->
-    <script src="main.js"></script>
+    <script src="../static/js/main.js"></script>
     <!-- Подключение библиотеки иконок Ionicons -->
-    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-</body>
+    <script
+      type="module"
+      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"
+    ></script>
+    <script
+      nomodule
+      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"
+    ></script>
+  </body>
 </html>

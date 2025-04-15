@@ -1,11 +1,167 @@
 document.addEventListener('DOMContentLoaded', function() {
 
     const contacts = document.querySelectorAll('.contact');
-    // Данные пользователя (для примера)
+    // Update user data with correct path to avatar image
     const currentUser = {
         name: 'You',
-        avatar: 'avatar.png' // Путь к вашей аватарке
+        avatar: '/static/images/avatar.png' // Updated path to avatar
     };
+
+    // Add User Modal functionality
+    const addUserButton = document.getElementById('add-user');
+    const addUserContainer = document.getElementById('add-user-container');
+    const cancelAddContact = document.getElementById('cancel-add-contact');
+    const addContactBtn = document.getElementById('add-contact-btn');
+    const newContactNameInput = document.getElementById('new-contact-name');
+    const addGroupButton = document.getElementById('add-group');
+    const addGroupContainer = document.getElementById('add-group-container');
+    const cancelAddGroup = document.getElementById('cancel-add-group');
+    const addGroupBtn = document.getElementById('add-group-btn');
+    const newGroupNameInput = document.getElementById('new-group-name');
+    
+    // Edit Profile Modal functionality
+    const editProfileButton = document.getElementById('edit-profile');
+    const editProfileContainer = document.getElementById('edit-profile-container');
+    const cancelEditProfile = document.getElementById('cancel-edit-profile');
+    const saveProfileBtn = document.getElementById('save-profile');
+    const editUsernameInput = document.getElementById('edit-username');
+    const editEmailInput = document.getElementById('edit-email');
+    const editPasswordInput = document.getElementById('edit-password');
+
+    // Show modal when "Add User" button is clicked
+    addUserButton.addEventListener('click', function() {
+        addUserContainer.classList.remove('hidden');
+        newContactNameInput.focus();
+        // Also close the menu when opening the modal
+        menu.classList.remove('active');
+        setTimeout(() => {
+            menu.classList.add('hidden');
+        }, 300);
+    });
+
+    // Hide modal when "Cancel" button is clicked
+    cancelAddContact.addEventListener('click', function() {
+        addUserContainer.classList.add('hidden');
+        newContactNameInput.value = ''; // Clear input field
+    });
+
+    // Add new contact when "Add" button is clicked (placeholder functionality)
+    addContactBtn.addEventListener('click', function() {
+        const contactName = newContactNameInput.value.trim();
+        if (contactName) {
+            // In a real app, you would save the new contact to your database
+            // For now, we'll just hide the modal
+            addUserContainer.classList.add('hidden');
+            newContactNameInput.value = ''; // Clear input field
+            
+            // You could add code here to dynamically create a new contact in the UI
+            // This would be a good place to add that functionality in the future
+        }
+    });
+
+    // Close modal when clicking outside
+    addUserContainer.addEventListener('click', function(e) {
+        if (e.target === addUserContainer) {
+            addUserContainer.classList.add('hidden');
+            newContactNameInput.value = ''; // Clear input field
+        }
+    });
+
+    // Show modal when "Add Group" button is clicked
+    addGroupButton.addEventListener('click', function() {
+        addGroupContainer.classList.remove('hidden');
+        newGroupNameInput.focus();
+        // Also close the menu when opening the modal
+        menu.classList.remove('active');
+        setTimeout(() => {
+            menu.classList.add('hidden');
+        }, 300);
+    });
+
+    // Hide modal when "Cancel" button is clicked for group
+    cancelAddGroup.addEventListener('click', function() {
+        addGroupContainer.classList.add('hidden');
+        newGroupNameInput.value = ''; // Clear input field
+    });
+
+    // Add new group when "Add" button is clicked (placeholder functionality)
+    addGroupBtn.addEventListener('click', function() {
+        const groupName = newGroupNameInput.value.trim();
+        if (groupName) {
+            // In a real app, you would save the new group to your database
+            // For now, we'll just hide the modal
+            addGroupContainer.classList.add('hidden');
+            newGroupNameInput.value = ''; // Clear input field
+            
+            // You could add code here to dynamically create a new group in the UI
+            // This would be a good place to add that functionality in the future
+        }
+    });
+
+    // Close modal when clicking outside for group
+    addGroupContainer.addEventListener('click', function(e) {
+        if (e.target === addGroupContainer) {
+            addGroupContainer.classList.add('hidden');
+            newGroupNameInput.value = ''; // Clear input field
+        }
+    });
+
+    // Show modal when "Edit Profile" button is clicked
+    editProfileButton.addEventListener('click', function() {
+        // Get current profile data
+        const username = document.querySelector('.profile-info h3').textContent;
+        const email = document.querySelector('.profile-info p').textContent;
+        
+        // Pre-fill the form fields with current data
+        editUsernameInput.value = username;
+        editEmailInput.value = email;
+        editPasswordInput.value = ''; // Password is blank for security
+        
+        // Show the modal
+        editProfileContainer.classList.remove('hidden');
+        editUsernameInput.focus();
+        
+        // Close the menu
+        menu.classList.remove('active');
+        setTimeout(() => {
+            menu.classList.add('hidden');
+        }, 300);
+    });
+    
+    // Hide modal when "Back" button is clicked for profile
+    cancelEditProfile.addEventListener('click', function() {
+        editProfileContainer.classList.add('hidden');
+        // No need to clear fields as they'll be repopulated on open
+    });
+    
+    // Save profile changes when "Checkmark" button is clicked
+    saveProfileBtn.addEventListener('click', function() {
+        const username = editUsernameInput.value.trim();
+        const email = editEmailInput.value.trim();
+        const password = editPasswordInput.value.trim();
+        
+        if (username && email) {
+            // In a real app, you would update the user profile in your database
+            // For now, we'll just update the UI and hide the modal
+            document.querySelector('.profile-info h3').textContent = username;
+            document.querySelector('.profile-info p').textContent = email;
+            
+            // If password was provided, you would handle that here
+            if (password) {
+                // console.log('Password would be updated in a real app');
+            }
+            
+            // Hide the modal
+            editProfileContainer.classList.add('hidden');
+        }
+    });
+    
+    // Close modal when clicking outside for profile edit
+    editProfileContainer.addEventListener('click', function(e) {
+        if (e.target === editProfileContainer) {
+            editProfileContainer.classList.add('hidden');
+        }
+    });
 
     contacts.forEach(contact => {
         contact.addEventListener('click', function() {
@@ -81,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageElement = document.createElement('div');
         messageElement.classList.add('message', 'outgoing');
         
-        // Используем аватарку текущего пользователя
+        // Using updated path to avatar
         messageElement.innerHTML = `
             <div class="message-bubble">
                 <p>${message}</p>
@@ -156,6 +312,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 contact.style.display = 'none'
             }
         });
+    });
+
+    // Updated menu functionality
+    const menuBtn = document.getElementById('menu-btn');
+    const menu = document.getElementById('menu');
+    
+    // Add click event for opening menu
+    menuBtn.addEventListener('click', function() {
+        menu.classList.remove('hidden');
+        setTimeout(() => {
+            menu.classList.add('active');
+        }, 10);
+    });
+    
+    // Add click event for closing menu when clicking outside
+    document.addEventListener('click', function(event) {
+        // Check if click is outside the menu and the menu button
+        if (!menu.contains(event.target) && !menuBtn.contains(event.target) && menu.classList.contains('active')) {
+            menu.classList.remove('active');
+            setTimeout(() => {
+                menu.classList.add('hidden');
+            }, 300); // Add delay equal to transition time
+        }
+    });
+    
+    // Add close button functionality for the menu
+    document.getElementById('logout').addEventListener('click', function() {
+        // Redirect to logout URL
+        window.location.href = '/logout';
     });
 });
 
