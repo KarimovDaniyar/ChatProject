@@ -134,7 +134,9 @@
           </div>
           <!-- Кнопки действий в чате (меню опций) -->
           <div class="chat-actions">
-            <button><ion-icon name="ellipsis-vertical"></ion-icon></button>
+            <button id="user-menu-btn">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </button>
           </div>
         </div>
 
@@ -229,6 +231,7 @@
           <button id="cancel-edit-profile" class="header-btn">
             <ion-icon name="arrow-back-outline"></ion-icon>
           </button>
+          <h2>Редактировать профиль</h2>
           <button id="save-profile" class="header-btn">
             <ion-icon name="checkmark-outline"></ion-icon>
           </button>
@@ -261,6 +264,18 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Меню пользователя -->
+    <div id="user-menu" class="user-menu hidden">
+      <button class="clear-btn">
+        <ion-icon name="trash-outline" class="user-menu-icon"></ion-icon>
+        Очистить историю
+      </button>
+      <button class="delete-btn">
+        <ion-icon name="close-circle-outline" class="user-menu-icon"></ion-icon>
+        Удалить чат
+      </button>
     </div>
 
     <!-- Подключение JavaScript для функциональности чата -->

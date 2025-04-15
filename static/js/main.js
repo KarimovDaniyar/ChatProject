@@ -27,6 +27,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const editUsernameInput = document.getElementById('edit-username');
     const editEmailInput = document.getElementById('edit-email');
     const editPasswordInput = document.getElementById('edit-password');
+    
+    // User Menu functionality
+    const userMenuBtn = document.getElementById('user-menu-btn');
+    const userMenu = document.getElementById('user-menu');
 
     // Show modal when "Add User" button is clicked
     addUserButton.addEventListener('click', function() {
@@ -161,6 +165,54 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === editProfileContainer) {
             editProfileContainer.classList.add('hidden');
         }
+    });
+
+    // Show/hide user menu when button is clicked
+    userMenuBtn.addEventListener('click', function() {
+        userMenu.classList.toggle('hidden');
+        userMenu.classList.toggle('active');
+        
+        // Close the menu when clicking outside
+        document.addEventListener('click', handleOutsideClickUserMenu);
+    });
+    
+    // Handle clicks outside of the user menu
+    function handleOutsideClickUserMenu(event) {
+        if (!userMenu.contains(event.target) && !userMenuBtn.contains(event.target)) {
+            userMenu.classList.remove('active');
+            setTimeout(() => {
+                userMenu.classList.add('hidden');
+            }, 300);
+            document.removeEventListener('click', handleOutsideClickUserMenu);
+        }
+    }
+    
+    // Add functionality to user menu buttons
+    const clearHistoryBtn = userMenu.querySelector('.clear-btn');
+    const deleteChatBtn = userMenu.querySelector('.delete-btn');
+    
+    clearHistoryBtn.addEventListener('click', function() {
+        // Clear chat history functionality
+        const messages = document.querySelector('.messages');
+        messages.innerHTML = '';
+        
+        // Hide the menu after action
+        userMenu.classList.remove('active');
+        setTimeout(() => {
+            userMenu.classList.add('hidden');
+        }, 300);
+    });
+    
+    deleteChatBtn.addEventListener('click', function() {
+        // Delete chat functionality (for demo just clear history)
+        const messages = document.querySelector('.messages');
+        messages.innerHTML = '';
+        
+        // Hide the menu after action
+        userMenu.classList.remove('active');
+        setTimeout(() => {
+            userMenu.classList.add('hidden');
+        }, 300);
     });
 
     contacts.forEach(contact => {
