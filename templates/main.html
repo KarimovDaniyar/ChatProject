@@ -148,16 +148,19 @@
         <!-- Поле ввода сообщений с кнопками -->
         <div class="message-input">
           <!-- Кнопка для прикрепления изображений к сообщению -->
-          <button><ion-icon name="images-outline"></ion-icon></button>
+          <button id="media-button" class="media-button">
+            <ion-icon name="images-outline"></ion-icon>
+          </button>
+          <!-- Hidden file input for media uploads -->
+          <input type="file" id="media-input" accept="image/*,video/*" style="display: none;" multiple>
 
           <!-- Обертка для поля ввода и кнопки эмодзи (позволяет правильно выровнять) -->
           <div class="input-wrapper">
             <!-- Поле для ввода текста сообщения -->
             <input
-              id="test"
+              id="message-text"
               type="text"
               class="chat-input"
-              required
               placeholder="Enter message..."
             />
             <!-- Кнопка выбора эмодзи (позиционирована внутри поля ввода) -->
@@ -170,6 +173,34 @@
           <button type="submit" class="send-button">
             <ion-icon name="send-outline"></ion-icon>
           </button>
+        </div>
+        
+        <!-- Emoji picker container -->
+        <div id="emoji-picker-container" class="emoji-picker-container hidden">
+          <div class="emoji-picker-header">
+            <h3>Выберите эмодзи</h3>
+            <button id="close-emoji-picker" class="close-picker-btn">
+              <ion-icon name="close-outline"></ion-icon>
+            </button>
+          </div>
+          <div class="emoji-loading">
+            <ion-icon name="sync-outline" class="emoji-loading-icon"></ion-icon>
+            <p>Загрузка эмодзи...</p>
+          </div>
+          <div id="emoji-grid" class="emoji-grid"></div>
+        </div>
+        
+        <!-- Media preview container -->
+        <div id="media-preview-container" class="media-preview-container hidden">
+          <div class="media-preview-header">
+            <h3>Media Preview</h3>
+            <button id="close-preview" class="close-preview-btn">
+              <ion-icon name="close-outline"></ion-icon>
+            </button>
+          </div>
+          <div id="media-preview-content" class="media-preview-content">
+            <!-- Preview items will be added here dynamically -->
+          </div>
         </div>
       </div>
     </div>
@@ -276,6 +307,35 @@
         <ion-icon name="close-circle-outline" class="user-menu-icon"></ion-icon>
         Удалить чат
       </button>
+    </div>
+
+     <div id="confirmation-modal" class="confirmation-modal hidden">
+      <div class="confirmation-content">
+        <p>Вы точно хотите удалить чат?</p>
+        <div class="confirmation-buttons">
+          <button id="cancel-confirmation" class="action-btn cancel-btn">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+          </button>
+          <button id="confirmation-deletion" class="action-btn delete-btn">
+            <ion-icon name="checkmark-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div> 
+
+    <!-- Media Lightbox -->
+    <div id="media-lightbox" class="media-lightbox hidden">
+      <div class="lightbox-content">
+        <!-- Media content will be inserted here dynamically -->
+      </div>
+      <div class="lightbox-controls">
+        <button id="close-lightbox" class="lightbox-btn">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+        <button id="download-media" class="lightbox-btn">
+          <ion-icon name="download-outline"></ion-icon>
+        </button>
+      </div>
     </div>
 
     <!-- Подключение JavaScript для функциональности чата -->
