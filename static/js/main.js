@@ -7,6 +7,29 @@ document.addEventListener('DOMContentLoaded', function() {
         avatar: '/static/images/avatar.png' // Updated path to avatar
     };
 
+    // Media handling variables
+    const selectedMedia = [];
+    const mediaInput = document.getElementById('media-input');
+    const mediaButton = document.getElementById('media-button');
+    const mediaPreviewContainer = document.getElementById('media-preview-container');
+    const mediaPreviewContent = document.getElementById('media-preview-content');
+    const closePreviewBtn = document.getElementById('close-preview');
+    const mediaLightbox = document.getElementById('media-lightbox');
+    const lightboxContent = document.querySelector('.lightbox-content');
+    const closeLightboxBtn = document.getElementById('close-lightbox');
+    const downloadMediaBtn = document.getElementById('download-media');
+
+    // Emoji picker variables
+    const emojiButton = document.querySelector('.emoji-button');
+    const emojiPickerContainer = document.getElementById('emoji-picker-container');
+    const closeEmojiPickerBtn = document.getElementById('close-emoji-picker');
+    const emojiGrid = document.getElementById('emoji-grid');
+    const emojiLoading = document.querySelector('.emoji-loading');
+    const messageText = document.getElementById('message-text');
+    let emojisLoaded = false;
+    const API_KEY = '5ea1113c8ca5c111a97f7be1af7b95886bd84898';
+    const API_URL = `https://emoji-api.com/emojis?access_key=${API_KEY}`;
+
     // Add User Modal functionality
     const addUserButton = document.getElementById('add-user');
     const addUserContainer = document.getElementById('add-user-container');
@@ -283,9 +306,13 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const message = messageInput.value.trim();
 
-            if(message) {
-                sendMessage(message);
+            if (message || selectedMedia.length > 0) {
+                sendMessage(message, selectedMedia);
                 messageInput.value = '';
+                // Clear media previews
+                mediaPreviewContainer.classList.add('hidden');
+                mediaPreviewContent.innerHTML = '';
+                selectedMedia.length = 0; // Clear the array
             }
         }
     });
@@ -296,22 +323,51 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const message = messageInput.value.trim();
             
-            if(message) {
-                sendMessage(message);
+            if (message || selectedMedia.length > 0) {
+                sendMessage(message, selectedMedia);
                 messageInput.value = '';
+                // Clear media previews
+                mediaPreviewContainer.classList.add('hidden');
+                mediaPreviewContent.innerHTML = '';
+                selectedMedia.length = 0; // Clear the array
             }
         }
     });
 
-    function sendMessage(message) {
+    function sendMessage(message, mediaFiles = []) {
         const messages = document.querySelector('.messages');
         const messageElement = document.createElement('div');
         messageElement.classList.add('message', 'outgoing');
         
+        // Prepare message content with media if available
+        let mediaHTML = '';
+        
+        if (mediaFiles.length > 0) {
+            mediaFiles.forEach(file => {
+                const mediaUrl = URL.createObjectURL(file);
+                if (file.type.startsWith('image/')) {
+                    mediaHTML += `
+                        <div class="message-media">
+                            <img src="${mediaUrl}" alt="Image">
+                        </div>
+                    `;
+                } else if (file.type.startsWith('video/')) {
+                    mediaHTML += `
+                        <div class="message-media">
+                            <video src="${mediaUrl}" controls></video>
+                        </div>
+                    `;
+                }
+            });
+        }
+        
+        let textHTML = message ? `<p>${message}</p>` : '';
+        
         // Using updated path to avatar
         messageElement.innerHTML = `
             <div class="message-bubble">
-                <p>${message}</p>
+                ${mediaHTML}
+                ${textHTML}
                 <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
             </div>
             <div class="message-avatar">
@@ -326,17 +382,38 @@ document.addEventListener('DOMContentLoaded', function() {
         simulateReply();
     }
     
-    function receiveMessage(message, senderAvatar, senderName) {
+    function receiveMessage(message, senderAvatar, senderName, mediaType = null) {
         const messages = document.querySelector('.messages');
         const messageElement = document.createElement('div');
         messageElement.classList.add('message', 'incoming');
+        
+        // Add media content if specified
+        let mediaHTML = '';
+        
+        if (mediaType === 'image') {
+            mediaHTML = `
+                <div class="message-media">
+                    <img src="/static/images/avatar.png" alt="Received image">
+                </div>
+            `;
+        } else if (mediaType === 'video') {
+            mediaHTML = `
+                <div class="message-media">
+                    <video src="https://sample-videos.com/video123/mp4/240/big_buck_bunny_240p_1mb.mp4" controls></video>
+                </div>
+            `;
+        }
+        
+        // Include text if there's a message
+        const textHTML = message ? `<p>${message}</p>` : '';
         
         messageElement.innerHTML = `
             <div class="message-avatar">
                 <img src="${senderAvatar}" alt="${senderName}">
             </div>
             <div class="message-bubble">
-                <p>${message}</p>
+                ${mediaHTML}
+                ${textHTML}
                 <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
             </div>
         `;
@@ -355,7 +432,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const contactName = document.querySelector('.current-contact .contact-info h3').textContent;
             const contactImg = document.querySelector('.current-contact .contact-avatar img').src;
             
-            // Случайные ответы для демонстрации
+            // Random chance to send media response
+            const randomMedia = Math.floor(Math.random() * 10); // 0-9
+            
+            // Text replies
             const replies = [
                 "Хорошо, спасибо!",
                 "Интересно...",
@@ -366,8 +446,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 "Хммм, нужно подумать"
             ];
             
-            const randomReply = replies[Math.floor(Math.random() * replies.length)];
-            receiveMessage(randomReply, contactImg, contactName);
+            // Choose what type of message to send
+            if (randomMedia < 2) {
+                // Send image only
+                receiveMessage('', contactImg, contactName, 'image');
+            } else if (randomMedia < 3) {
+                // Send video only
+                receiveMessage('', contactImg, contactName, 'video');
+            } else if (randomMedia < 5) {
+                // Send text + image
+                const randomReply = replies[Math.floor(Math.random() * replies.length)];
+                receiveMessage(randomReply, contactImg, contactName, 'image');
+            } else {
+                // Send text only
+                const randomReply = replies[Math.floor(Math.random() * replies.length)];
+                receiveMessage(randomReply, contactImg, contactName);
+            }
         }, delay);
     }
 
@@ -413,6 +507,248 @@ document.addEventListener('DOMContentLoaded', function() {
         // Redirect to logout URL
         window.location.href = '/logout';
     });
+
+    // Media handling functionality
+    mediaButton.addEventListener('click', function() {
+        // Close emoji picker if it's open
+        if (!emojiPickerContainer.classList.contains('hidden')) {
+            emojiPickerContainer.classList.add('hidden');
+        }
+        
+        mediaInput.click();
+    });
+    
+    mediaInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            handleMediaFiles(this.files);
+        }
+    });
+    
+    function handleMediaFiles(files) {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+                // Add to selected media array
+                selectedMedia.push(file);
+                
+                // Create preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'preview-item';
+                    
+                    if (file.type.startsWith('image/')) {
+                        previewItem.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview">
+                            <button class="remove-preview" data-index="${selectedMedia.length - 1}">
+                                <ion-icon name="close"></ion-icon>
+                            </button>
+                        `;
+                    } else if (file.type.startsWith('video/')) {
+                        previewItem.innerHTML = `
+                            <video src="${e.target.result}" muted></video>
+                            <button class="remove-preview" data-index="${selectedMedia.length - 1}">
+                                <ion-icon name="close"></ion-icon>
+                            </button>
+                            <div class="media-type-icon">
+                                <ion-icon name="videocam"></ion-icon>
+                            </div>
+                        `;
+                    }
+                    
+                    mediaPreviewContent.appendChild(previewItem);
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        // Show preview container
+        if (selectedMedia.length > 0) {
+            mediaPreviewContainer.classList.remove('hidden');
+        }
+    }
+    
+    // Remove media preview item
+    mediaPreviewContent.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-preview')) {
+            const button = e.target.closest('.remove-preview');
+            const index = parseInt(button.getAttribute('data-index'));
+            
+            // Remove from array and DOM
+            selectedMedia.splice(index, 1);
+            button.closest('.preview-item').remove();
+            
+            // Reindex remaining buttons
+            document.querySelectorAll('.remove-preview').forEach((btn, idx) => {
+                btn.setAttribute('data-index', idx);
+            });
+            
+            // Hide container if no more media
+            if (selectedMedia.length === 0) {
+                mediaPreviewContainer.classList.add('hidden');
+            }
+        }
+    });
+    
+    // Close preview container
+    closePreviewBtn.addEventListener('click', function() {
+        mediaPreviewContainer.classList.add('hidden');
+        mediaPreviewContent.innerHTML = '';
+        selectedMedia.length = 0; // Clear the array
+    });
+    
+    // Media lightbox functionality
+    document.addEventListener('click', function(e) {
+        const mediaImg = e.target.closest('.message-media img, .message-media video');
+        if (mediaImg) {
+            const mediaUrl = mediaImg.src || mediaImg.currentSrc;
+            const isVideo = mediaImg.tagName.toLowerCase() === 'video';
+            
+            // Set content in lightbox
+            if (isVideo) {
+                lightboxContent.innerHTML = `<video src="${mediaUrl}" controls autoplay></video>`;
+                downloadMediaBtn.setAttribute('data-src', mediaUrl);
+                downloadMediaBtn.setAttribute('data-filename', 'video_' + new Date().getTime() + '.mp4');
+            } else {
+                lightboxContent.innerHTML = `<img src="${mediaUrl}" alt="Full size image">`;
+                downloadMediaBtn.setAttribute('data-src', mediaUrl);
+                downloadMediaBtn.setAttribute('data-filename', 'image_' + new Date().getTime() + '.jpg');
+            }
+            
+            // Show lightbox
+            mediaLightbox.classList.remove('hidden');
+        }
+    });
+    
+    // Close lightbox
+    closeLightboxBtn.addEventListener('click', function() {
+        mediaLightbox.classList.add('hidden');
+        lightboxContent.innerHTML = '';
+    });
+    
+    // Download media
+    downloadMediaBtn.addEventListener('click', function() {
+        const mediaUrl = this.getAttribute('data-src');
+        const filename = this.getAttribute('data-filename');
+        
+        if (mediaUrl) {
+            const a = document.createElement('a');
+            a.href = mediaUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    });
+    
+    // Click outside lightbox to close
+    mediaLightbox.addEventListener('click', function(e) {
+        if (e.target === mediaLightbox) {
+            mediaLightbox.classList.add('hidden');
+            lightboxContent.innerHTML = '';
+        }
+    });
+
+    // Emoji picker functionality
+    emojiButton.addEventListener('click', function() {
+        // Close media preview if it's open
+        if (!mediaPreviewContainer.classList.contains('hidden')) {
+            mediaPreviewContainer.classList.add('hidden');
+        }
+        
+        // Show the emoji picker
+        emojiPickerContainer.classList.remove('hidden');
+        
+        // Load emojis if they haven't been loaded yet
+        if (!emojisLoaded) {
+            fetchEmojis();
+        }
+    });
+    
+    // Close emoji picker when clicking the close button
+    closeEmojiPickerBtn.addEventListener('click', function() {
+        emojiPickerContainer.classList.add('hidden');
+    });
+    
+    // Close emoji picker when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!emojiPickerContainer.contains(event.target) && 
+            !emojiButton.contains(event.target) && 
+            !emojiPickerContainer.classList.contains('hidden')) {
+            emojiPickerContainer.classList.add('hidden');
+        }
+    });
+    
+    // Function to fetch emojis from API
+    function fetchEmojis() {
+        // Show loading indicator
+        emojiLoading.style.display = 'flex';
+        emojiGrid.innerHTML = '';
+        
+        fetch(API_URL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Hide loading indicator
+                emojiLoading.style.display = 'none';
+                
+                // Process and display emojis
+                displayEmojis(data);
+                emojisLoaded = true;
+            })
+            .catch(error => {
+                console.error('Error fetching emojis:', error);
+                emojiLoading.innerHTML = `
+                    <p>Не удалось загрузить эмодзи</p>
+                    <button id="retry-emoji-load" class="action-btn">
+                        <ion-icon name="refresh-outline"></ion-icon> Повторить
+                    </button>
+                `;
+                
+                document.getElementById('retry-emoji-load').addEventListener('click', fetchEmojis);
+            });
+    }
+    
+    // Function to display emojis in the grid
+    function displayEmojis(emojis) {
+        // Limit to a reasonable number of emojis to avoid performance issues
+        const limitedEmojis = emojis.slice(0, 100);
+        
+        limitedEmojis.forEach(emoji => {
+            const emojiItem = document.createElement('div');
+            emojiItem.className = 'emoji-item';
+            emojiItem.textContent = emoji.character;
+            emojiItem.title = emoji.unicodeName;
+            
+            // Add click event to insert emoji into message input
+            emojiItem.addEventListener('click', function() {
+                insertEmoji(emoji.character);
+            });
+            
+            emojiGrid.appendChild(emojiItem);
+        });
+    }
+    
+    // Function to insert emoji at cursor position in message input
+    function insertEmoji(emoji) {
+        const cursorPos = messageText.selectionStart;
+        const textBefore = messageText.value.substring(0, cursorPos);
+        const textAfter = messageText.value.substring(cursorPos);
+        
+        messageText.value = textBefore + emoji + textAfter;
+        
+        // Set cursor position after the inserted emoji
+        messageText.selectionStart = cursorPos + emoji.length;
+        messageText.selectionEnd = cursorPos + emoji.length;
+        
+        // Focus back on input
+        messageText.focus();
+    }
 });
 
 

@@ -768,6 +768,290 @@ body {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
+/* Media Preview Styles */
+.media-preview-container {
+    position: absolute;
+    bottom: 80px;
+    left: 0;
+    right: 0;
+    background-color: rgba(34, 61, 85, 0.95);
+    border-top: 1px solid rgba(212, 214, 201, 0.5);
+    z-index: 10;
+    transition: transform 0.3s ease;
+    max-height: 200px;
+    overflow-y: auto;
+    transform: translateY(0);
+    /* Fix для предотвращения выхода за границы чата */
+    width: calc(100% - 350px); /* Вычитаем ширину сайдбара */
+    margin-left: 350px; /* Смещаем вправо на ширину сайдбара */
+}
+
+.media-preview-container.hidden {
+    transform: translateY(100%);
+    display: none;
+}
+
+/* Add styles for media preview header */
+.media-preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid rgba(212, 214, 201, 0.5);
+}
+
+.media-preview-header h3 {
+    color: #ffffff;
+    font-size: 16px;
+    margin: 0;
+}
+
+.close-preview-btn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+}
+
+/* Add styles for media preview content */
+.media-preview-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 15px;
+}
+
+.preview-item {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.preview-item img,
+.preview-item video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-preview {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+}
+
+.remove-preview:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+/* Emoji Picker Styles */
+.emoji-picker-container {
+    position: absolute;
+    bottom: 80px;
+    left: 0;
+    right: 0;
+    background-color: rgba(34, 61, 85, 0.95);
+    border-top: 1px solid rgba(212, 214, 201, 0.5);
+    z-index: 10;
+    transition: transform 0.3s ease;
+    max-height: 280px;
+    overflow-y: auto;
+    transform: translateY(0);
+    width: calc(100% - 350px);
+    margin-left: 350px;
+}
+
+.emoji-picker-container.hidden {
+    transform: translateY(100%);
+    display: none;
+}
+
+.emoji-picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid rgba(212, 214, 201, 0.5);
+}
+
+.emoji-picker-header h3 {
+    color: #ffffff;
+    font-size: 16px;
+    margin: 0;
+}
+
+.close-picker-btn {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 10px;
+    padding: 15px;
+}
+
+.emoji-item {
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    border-radius: 5px;
+    transition: background-color 0.2s;
+    user-select: none;
+}
+
+.emoji-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.emoji-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 0;
+    color: white;
+}
+
+.emoji-loading-icon {
+    font-size: 32px;
+    animation: spin 2s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Media in Messages Styles */
+.message-media {
+    margin-bottom: 5px;
+    max-width: 250px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.message-media img {
+    width: 100%;
+    object-fit: contain;
+    cursor: pointer;
+    border-radius: 8px;
+    max-height: 200px;
+}
+
+.message-media video {
+    width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    background-color: #000;
+}
+
+.media-type-icon {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Media Lightbox Styles */
+.media-lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.media-lightbox.hidden {
+    display: none;
+}
+
+.lightbox-content {
+    max-width: 90%;
+    max-height: 80%;
+}
+
+.lightbox-content img,
+.lightbox-content video {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+}
+
+.lightbox-controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 20px;
+}
+
+.lightbox-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 24px;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    transition: background 0.3s;
+}
+
+.lightbox-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
 /* Адаптивные настройки для мобильных устройств */
 @media (max-width: 768px) {
     .sidebar {
@@ -780,5 +1064,10 @@ body {
     
     .contact-avatar {
         margin: 0 auto;
+    }
+    
+    .media-preview-container {
+        width: calc(100% - 80px); /* Адаптация для мобильных устройств */
+        margin-left: 80px;
     }
 }
