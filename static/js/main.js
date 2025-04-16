@@ -190,12 +190,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add functionality to user menu buttons
     const clearHistoryBtn = userMenu.querySelector('.clear-btn');
     const deleteChatBtn = userMenu.querySelector('.delete-btn');
+    const confirmationModal = document.getElementById('confirmation-modal');
+    const cancelConfirmationBtn = document.getElementById('cancel-confirmation');
+    const confirmationDeletionBtn = document.getElementById('confirmation-deletion');
     
     clearHistoryBtn.addEventListener('click', function() {
-        // Clear chat history functionality
         const messages = document.querySelector('.messages');
         messages.innerHTML = '';
-        
         // Hide the menu after action
         userMenu.classList.remove('active');
         setTimeout(() => {
@@ -203,16 +204,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     });
     
+    // Set up deletion confirmation logic
     deleteChatBtn.addEventListener('click', function() {
-        // Delete chat functionality (for demo just clear history)
-        const messages = document.querySelector('.messages');
-        messages.innerHTML = '';
-        
-        // Hide the menu after action
+        // Show the confirmation modal
+        confirmationModal.classList.remove('hidden');
+        // Hide the user menu
         userMenu.classList.remove('active');
         setTimeout(() => {
             userMenu.classList.add('hidden');
         }, 300);
+    });
+    
+    // Handle confirmation modal Cancel button
+    cancelConfirmationBtn.addEventListener('click', function() {
+        confirmationModal.classList.add('hidden');
+    });
+    
+    // Handle confirmation modal Delete button
+    confirmationDeletionBtn.addEventListener('click', function() {
+        const messages = document.querySelector('.messages');
+        messages.innerHTML = '';
+        confirmationModal.classList.add('hidden');
+    });
+    
+    // Close confirmation modal when clicking outside
+    confirmationModal.addEventListener('click', function(e) {
+        if (e.target === confirmationModal) {
+            confirmationModal.classList.add('hidden');
+        }
     });
 
     contacts.forEach(contact => {
