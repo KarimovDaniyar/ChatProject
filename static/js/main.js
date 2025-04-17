@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const token = localStorage.getItem("token");
     if (!token) {
+        console.log("No token found, redirecting to login");
         window.location.href = "/";
         return;
     }
@@ -10,8 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageInput = document.querySelector("#message-text");
     const sendButton = document.querySelector("#send-button");
     const activeUsersList = document.querySelector("#active-users-list");
+    const contactsList = document.querySelector('.contacts-list');
 
-    const contacts = document.querySelectorAll('.contact');
     const currentUser = {
         name: 'You',
         avatar: '/static/images/avatar.png'
@@ -57,6 +58,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const userMenuBtn = document.getElementById('user-menu-btn');
     const userMenu = document.getElementById('user-menu');
 
+    // Хранилище для идентификаторов отображённых сообщений
+    const displayedMessages = new Set();
+
     function getCurrentUserId() {
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
@@ -72,6 +76,66 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('.profile-info h3').textContent = currentUsername;
     }
 
+    async function loadContacts() {
+        try {
+            console.log("Loading contacts...");
+            const response = await fetch("/users", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                if (response.status === 401) {
+                    console.log("Unauthorized, redirecting to login");
+                    localStorage.removeItem("token");
+                    window.location.href = "/";
+                    return;
+                }
+                throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
+            }
+            const users = await response.json();
+            console.log("Loaded users:", users);
+            contactsList.innerHTML = "";
+            users.forEach(user => {
+                if (user.username !== currentUsername) {
+                    const contactElement = document.createElement('div');
+                    contactElement.classList.add('contact');
+                    contactElement.setAttribute('data-username', user.username);
+                    contactElement.innerHTML = `
+                        <div class="contact-avatar">
+                            <img src="/static/images/avatar.png" alt="${user.username}">
+                        </div>
+                        <div class="contact-info">
+                            <h3>${user.username}</h3>
+                            <p>Offline</p>
+                        </div>
+                        <div class="contact-status offline"></div>
+                    `;
+                    contactsList.appendChild(contactElement);
+                }
+            });
+
+            const contacts = document.querySelectorAll('.contact');
+            contacts.forEach(contact => {
+                contact.addEventListener('click', function() {
+                    contacts.forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    const contactName = this.querySelector('.contact-info h3').textContent;
+                    const contactImg = this.querySelector('.contact-avatar img').src;
+                    const isOnline = this.querySelector('.contact-status.online') !== null;
+                    document.querySelector('.current-contact .contact-info h3').textContent = contactName;
+                    document.querySelector('.current-contact .contact-info p').textContent = isOnline ? 'Online' : 'Offline';
+                    document.querySelector('.current-contact .contact-avatar img').src = contactImg;
+                    loadMessages();
+                });
+            });
+
+            if (contacts.length > 0) {
+                contacts[0].click();
+            }
+        } catch (error) {
+            console.error("Error loading contacts:", error);
+        }
+    }
+
     async function loadMessages() {
         try {
             console.log("Loading messages for chat_id:", chatId);
@@ -80,6 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) {
                 if (response.status === 401) {
+                    console.log("Unauthorized, redirecting to login");
                     localStorage.removeItem("token");
                     window.location.href = "/";
                     return;
@@ -89,9 +154,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const messages = await response.json();
             console.log("Loaded messages:", messages);
             messageContainer.innerHTML = "";
+            displayedMessages.clear();
             messages.forEach(msg => {
                 const isOutgoing = msg.username === getCurrentUserId();
-                displayMessage(msg.content, msg.username, isOutgoing ? currentUser.avatar : '/static/images/avatar.png', isOutgoing, msg.timestamp, "message");
+                displayMessage(msg.id, msg.content, msg.username, isOutgoing ? currentUser.avatar : '/static/images/avatar.png', isOutgoing, msg.timestamp, "message");
             });
         } catch (error) {
             console.error("Error loading messages:", error);
@@ -110,14 +176,23 @@ document.addEventListener('DOMContentLoaded', function() {
             updateActiveUsers(message.users);
         } else {
             const isOutgoing = message.username === getCurrentUserId();
+            const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
             displayMessage(
+                messageId,
                 message.content,
                 message.username,
                 isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
                 isOutgoing,
-                new Date().toISOString(),
+                message.timestamp || new Date().toISOString(),
                 message.type || "message"
             );
+            const contactElement = document.querySelector(`.contact[data-username="${message.username}"]`);
+            if (contactElement) {
+                const statusElement = contactElement.querySelector('.contact-status');
+                statusElement.classList.remove('offline');
+                statusElement.classList.add('online');
+                contactElement.querySelector('.contact-info p').textContent = 'Online';
+            }
         }
     };
 
@@ -136,6 +211,13 @@ document.addEventListener('DOMContentLoaded', function() {
             userElement.classList.add('active-user');
             userElement.textContent = user.username;
             activeUsersList.appendChild(userElement);
+            const contactElement = document.querySelector(`.contact[data-username="${user.username}"]`);
+            if (contactElement) {
+                const statusElement = contactElement.querySelector('.contact-status');
+                statusElement.classList.remove('offline');
+                statusElement.classList.add('online');
+                contactElement.querySelector('.contact-info p').textContent = 'Online';
+            }
         });
     }
 
@@ -180,21 +262,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ chat_id: chatId, content })
             });
             if (!response.ok) {
+                const errorData = await response.json();
                 if (response.status === 401) {
+                    console.log("Unauthorized, redirecting to login");
                     localStorage.removeItem("token");
                     window.location.href = "/";
                     return;
                 }
-                throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
+                throw new Error(`Failed to send message: ${response.status} ${response.statusText} - ${errorData.detail || "Unknown error"}`);
             }
             const result = await response.json();
             console.log("Message sent successfully:", result);
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    content: content,
+                    username: getCurrentUserId(),
+                    type: "message"
+                }));
+            } else {
+                console.error("WebSocket is not open, cannot send message");
+            }
         } catch (error) {
             console.error("Send message error:", error);
         }
     }
 
-    function displayMessage(message, senderName, senderAvatar, isOutgoing, timestamp, type) {
+    function displayMessage(messageId, message, senderName, senderAvatar, isOutgoing, timestamp, type) {
+        if (messageId && displayedMessages.has(messageId)) {
+            console.log("Message already displayed, skipping:", messageId);
+            return;
+        }
+        if (messageId) {
+            displayedMessages.add(messageId);
+        }
+
         console.log("Displaying message:", message, "from:", senderName, "isOutgoing:", isOutgoing, "type:", type);
         const messageElement = document.createElement('div');
         if (type === "system") {
@@ -202,13 +303,29 @@ document.addEventListener('DOMContentLoaded', function() {
             messageElement.innerHTML = `
                 <div class="message-bubble">
                     <p>${message}</p>
-                    <span class="message-time">${new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    <span class="message-time">${formatTimestamp(timestamp)}</span>
                 </div>
             `;
         } else {
             messageElement.classList.add('message', isOutgoing ? 'outgoing' : 'incoming');
             let mediaHTML = '';
-            const textHTML = message ? `<p>${message}</p>` : '';
+            const mediaRegex = /\[Media: (.*?)\]/g;
+            let textContent = message;
+            const mediaMatches = message.match(mediaRegex);
+            if (mediaMatches) {
+                mediaMatches.forEach(match => {
+                    const fileName = match.match(/\[Media: (.*?)\]/)[1];
+                    const isImage = fileName.match(/\.(jpg|jpeg|png|gif)$/i);
+                    const isVideo = fileName.match(/\.(mp4|webm|ogg)$/i);
+                    if (isImage) {
+                        mediaHTML += `<img src="/static/media/${fileName}" alt="Media" class="message-media">`;
+                    } else if (isVideo) {
+                        mediaHTML += `<video src="/static/media/${fileName}" controls class="message-media"></video>`;
+                    }
+                    textContent = textContent.replace(match, '');
+                });
+            }
+            const textHTML = textContent.trim() ? `<p>${textContent}</p>` : '';
             messageElement.innerHTML = `
                 <div class="message-avatar">
                     <img src="${senderAvatar}" alt="${senderName}">
@@ -217,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="message-sender">${senderName}</div>
                     ${mediaHTML}
                     ${textHTML}
-                    <span class="message-time">${new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    <span class="message-time">${formatTimestamp(timestamp)}</span>
                 </div>
             `;
         }
@@ -225,19 +342,19 @@ document.addEventListener('DOMContentLoaded', function() {
         messageContainer.scrollTop = messageContainer.scrollHeight;
     }
 
-    contacts.forEach(contact => {
-        contact.addEventListener('click', function() {
-            contacts.forEach(c => c.classList.remove('active'));
-            this.classList.add('active');
-            const contactName = this.querySelector('.contact-info h3').textContent;
-            const contactImg = this.querySelector('.contact-avatar img').src;
-            const isOnline = this.querySelector('.contact-status.online') !== null;
-            document.querySelector('.current-contact .contact-info h3').textContent = contactName;
-            document.querySelector('.current-contact .contact-info p').textContent = isOnline ? 'Online': 'Offline';
-            document.querySelector('.current-contact .contact-avatar img').src = contactImg;
-            loadMessages();
-        });
-    });
+    function formatTimestamp(timestamp) {
+        try {
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) {
+                console.error("Invalid timestamp:", timestamp);
+                return "Invalid time";
+            }
+            return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        } catch (error) {
+            console.error("Error formatting timestamp:", timestamp, error);
+            return "Invalid time";
+        }
+    }
 
     addUserButton.addEventListener('click', function() {
         addUserContainer.classList.remove('hidden');
@@ -388,6 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.querySelector('.search-contact');
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
+        const contacts = document.querySelectorAll('.contact');
         contacts.forEach(contact => {
             const contactName = contact.querySelector('.contact-info h3').textContent.toLowerCase();
             if (contactName.includes(searchTerm)) {
@@ -608,5 +726,6 @@ document.addEventListener('DOMContentLoaded', function() {
         messageInput.focus();
     }
 
+    loadContacts();
     loadMessages();
 });

@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import sqlite3
-from database import init_db, create_user, get_user_by_username, verify_password, create_message, get_messages, get_or_create_chat
+from database import init_db, create_user, get_user_by_username, verify_password, create_message, get_messages, get_or_create_chat, get_all_users
 from security import create_access_token, decode_access_token
 
 app = FastAPI()
@@ -125,7 +125,7 @@ async def serve_login():
 
 @app.get("/chat", response_class=HTMLResponse)
 async def serve_chat(token: Optional[str] = Query(None)):
-    try :
+    try:
         current_user = await get_current_user_from_query(token)
         file_path = os.path.join(BASE_DIR, "templates", "main.html")
         with open(file_path, encoding="utf-8") as f:
@@ -160,6 +160,11 @@ async def login(user: UserLogin):
 @app.get("/logout")
 async def logout():
     return RedirectResponse(url="/")
+
+@app.get("/users")
+async def list_users(user: dict = Depends(get_current_user)):
+    users = get_all_users()
+    return users
 
 @app.post("/messages")
 async def send_message(message: MessageCreate, user: dict = Depends(get_current_user)):

@@ -50,6 +50,14 @@ def get_user_by_username(username: str):
         return {"id": user[0], "username": user[1], "password": user[2]}
     return None
 
+def get_all_users():
+    conn = sqlite3.connect("chat.db")
+    c = conn.cursor()
+    c.execute("SELECT id, username FROM users")
+    users = c.fetchall()
+    conn.close()
+    return [{"id": user[0], "username": user[1]} for user in users]
+
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
 
