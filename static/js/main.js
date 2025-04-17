@@ -5,10 +5,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    const chatId = 1; // Для простоты используем chat_id=1
+    const chatId = 1;
     const messageContainer = document.querySelector("#message-container");
     const messageInput = document.querySelector("#message-text");
     const sendButton = document.querySelector("#send-button");
+    const activeUsersList = document.querySelector("#active-users-list");
 
     const contacts = document.querySelectorAll('.contact');
     const currentUser = {
@@ -16,7 +17,6 @@ document.addEventListener('DOMContentLoaded', function() {
         avatar: '/static/images/avatar.png'
     };
 
-    // Media handling variables
     const selectedMedia = [];
     const mediaInput = document.getElementById('media-input');
     const mediaButton = document.getElementById('media-button');
@@ -28,7 +28,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeLightboxBtn = document.getElementById('close-lightbox');
     const downloadMediaBtn = document.getElementById('download-media');
 
-    // Emoji picker variables
     const emojiButton = document.querySelector('.emoji-button');
     const emojiPickerContainer = document.getElementById('emoji-picker-container');
     const closeEmojiPickerBtn = document.getElementById('close-emoji-picker');
@@ -38,7 +37,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const API_KEY = '5ea1113c8ca5c111a97f7be1af7b95886bd84898';
     const API_URL = `https://emoji-api.com/emojis?access_key=${API_KEY}`;
 
-    // Add User/Group/Edit Profile Modal functionality
     const addUserButton = document.getElementById('add-user');
     const addUserContainer = document.getElementById('add-user-container');
     const cancelAddContact = document.getElementById('cancel-add-contact');
@@ -59,43 +57,88 @@ document.addEventListener('DOMContentLoaded', function() {
     const userMenuBtn = document.getElementById('user-menu-btn');
     const userMenu = document.getElementById('user-menu');
 
-    // Загрузка сообщений из базы данных
+    function getCurrentUserId() {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.sub;
+        } catch (error) {
+            console.error("Error decoding token:", error);
+            return null;
+        }
+    }
+
+    const currentUsername = getCurrentUserId();
+    if (currentUsername) {
+        document.querySelector('.profile-info h3').textContent = currentUsername;
+    }
+
     async function loadMessages() {
         try {
+            console.log("Loading messages for chat_id:", chatId);
             const response = await fetch(`/messages/${chatId}`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
-            if (!response.ok) throw new Error("Failed to fetch messages");
+            if (!response.ok) {
+                if (response.status === 401) {
+                    localStorage.removeItem("token");
+                    window.location.href = "/";
+                    return;
+                }
+                throw new Error(`Failed to fetch messages: ${response.status} ${response.statusText}`);
+            }
             const messages = await response.json();
+            console.log("Loaded messages:", messages);
             messageContainer.innerHTML = "";
             messages.forEach(msg => {
-                const isOutgoing = msg.user_id === getCurrentUserId();
-                displayMessage(msg.content, msg.username, isOutgoing ? currentUser.avatar : '/static/images/avatar.png', isOutgoing);
+                const isOutgoing = msg.username === getCurrentUserId();
+                displayMessage(msg.content, msg.username, isOutgoing ? currentUser.avatar : '/static/images/avatar.png', isOutgoing, msg.timestamp, "message");
             });
         } catch (error) {
             console.error("Error loading messages:", error);
         }
     }
 
-    // Получение user_id из токена (пример)
-    function getCurrentUserId() {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        return payload.sub; // Предполагается, что user_id хранится в токене
+    const ws = new WebSocket(`ws://${window.location.host}/ws/${chatId}?token=${token}`);
+    ws.onopen = () => {
+        console.log("WebSocket connection established");
+    };
+
+    ws.onmessage = (event) => {
+        console.log("Received WebSocket message:", event.data);
+        const message = JSON.parse(event.data);
+        if (message.type === "user_list") {
+            updateActiveUsers(message.users);
+        } else {
+            const isOutgoing = message.username === getCurrentUserId();
+            displayMessage(
+                message.content,
+                message.username,
+                isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
+                isOutgoing,
+                new Date().toISOString(),
+                message.type || "message"
+            );
+        }
+    };
+
+    ws.onclose = (event) => {
+        console.log("WebSocket connection closed:", event);
+    };
+
+    ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+    };
+
+    function updateActiveUsers(users) {
+        activeUsersList.innerHTML = "";
+        users.forEach(user => {
+            const userElement = document.createElement('div');
+            userElement.classList.add('active-user');
+            userElement.textContent = user.username;
+            activeUsersList.appendChild(userElement);
+        });
     }
 
-    // WebSocket для реального времени
-    const ws = new WebSocket(`ws://${window.location.host}/ws/${chatId}`);
-    ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        const isOutgoing = message.user_id === getCurrentUserId();
-        displayMessage(message.content, message.username, isOutgoing ? currentUser.avatar : '/static/images/avatar.png', isOutgoing);
-    };
-
-    ws.onclose = () => {
-        console.log("WebSocket connection closed");
-    };
-
-    // Отправка сообщения
     sendButton.addEventListener("click", async () => {
         const content = messageInput.value.trim();
         if (content || selectedMedia.length > 0) {
@@ -125,9 +168,9 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             let content = message;
             if (mediaFiles.length > 0) {
-                // В реальном приложении ты бы загрузил медиа на сервер и добавил ссылки в сообщение
                 content += mediaFiles.map(file => ` [Media: ${file.name}]`).join('');
             }
+            console.log("Sending message:", content);
             const response = await fetch("/messages", {
                 method: "POST",
                 headers: {
@@ -136,33 +179,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({ chat_id: chatId, content })
             });
-            if (!response.ok) throw new Error("Failed to send message");
+            if (!response.ok) {
+                if (response.status === 401) {
+                    localStorage.removeItem("token");
+                    window.location.href = "/";
+                    return;
+                }
+                throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
+            }
+            const result = await response.json();
+            console.log("Message sent successfully:", result);
         } catch (error) {
             console.error("Send message error:", error);
         }
     }
 
-    function displayMessage(message, senderName, senderAvatar, isOutgoing) {
+    function displayMessage(message, senderName, senderAvatar, isOutgoing, timestamp, type) {
+        console.log("Displaying message:", message, "from:", senderName, "isOutgoing:", isOutgoing, "type:", type);
         const messageElement = document.createElement('div');
-        messageElement.classList.add('message', isOutgoing ? 'outgoing' : 'incoming');
-        let mediaHTML = '';
-        // Здесь можно добавить логику для отображения медиа, если оно есть
-        const textHTML = message ? `<p>${message}</p>` : '';
-        messageElement.innerHTML = `
-            <div class="message-avatar">
-                <img src="${senderAvatar}" alt="${senderName}">
-            </div>
-            <div class="message-bubble">
-                ${mediaHTML}
-                ${textHTML}
-                <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-            </div>
-        `;
+        if (type === "system") {
+            messageElement.classList.add('message', 'system');
+            messageElement.innerHTML = `
+                <div class="message-bubble">
+                    <p>${message}</p>
+                    <span class="message-time">${new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+            `;
+        } else {
+            messageElement.classList.add('message', isOutgoing ? 'outgoing' : 'incoming');
+            let mediaHTML = '';
+            const textHTML = message ? `<p>${message}</p>` : '';
+            messageElement.innerHTML = `
+                <div class="message-avatar">
+                    <img src="${senderAvatar}" alt="${senderName}">
+                </div>
+                <div class="message-bubble">
+                    <div class="message-sender">${senderName}</div>
+                    ${mediaHTML}
+                    ${textHTML}
+                    <span class="message-time">${new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+            `;
+        }
         messageContainer.appendChild(messageElement);
         messageContainer.scrollTop = messageContainer.scrollHeight;
     }
 
-    // Остальная часть твоего кода (контакты, медиа, эмодзи и т.д.)
     contacts.forEach(contact => {
         contact.addEventListener('click', function() {
             contacts.forEach(c => c.classList.remove('active'));
@@ -173,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelector('.current-contact .contact-info h3').textContent = contactName;
             document.querySelector('.current-contact .contact-info p').textContent = isOnline ? 'Online': 'Offline';
             document.querySelector('.current-contact .contact-avatar img').src = contactImg;
-            loadMessages(); // Загружаем историю сообщений для выбранного чата
+            loadMessages();
         });
     });
 
@@ -546,6 +608,5 @@ document.addEventListener('DOMContentLoaded', function() {
         messageInput.focus();
     }
 
-    // Инициализация
     loadMessages();
 });

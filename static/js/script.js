@@ -14,12 +14,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 const data = await response.json();
                 if (response.ok) {
                     localStorage.setItem("token", data.access_token);
-                    window.location.href = "/chat";
+                    window.location.href = `/chat?token=${data.access_token}`;
                 } else {
-                    alert(data.detail);
+                    alert(data.detail || "Login failed");
                 }
             } catch (error) {
                 console.error("Login error:", error);
+                alert("An error occurred during login");
             }
         });
     }
@@ -38,13 +39,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    alert("Registration successful! Please log in.");
-                    window.location.href = "/";
+                    localStorage.setItem("token", data.access_token);
+                    window.location.href = `/chat?token=${data.access_token}`;
                 } else {
-                    alert(data.detail);
+                    alert(data.detail || "Registration failed");
                 }
             } catch (error) {
                 console.error("Registration error:", error);
+                alert("An error occurred during registration");
             }
         });
     }
