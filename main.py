@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -68,19 +68,19 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 # Маршруты
 @app.get("/", response_class=HTMLResponse)
 async def serve_login():
-    file_path = os.path.join(BASE_DIR, "static", "templates", "login.html")
+    file_path = os.path.join(BASE_DIR, "templates", "login.html")
     with open(file_path) as f:
         return f.read()
 
 @app.get("/chat", response_class=HTMLResponse)
 async def serve_chat():
-    file_path = os.path.join(BASE_DIR, "static", "templates", "main.html")
+    file_path = os.path.join(BASE_DIR, "templates", "main.html")
     with open(file_path) as f:
         return f.read()
 
 @app.get("/register", response_class=HTMLResponse)
 async def serve_register():
-    file_path = os.path.join(BASE_DIR, "static", "templates", "register.html")
+    file_path = os.path.join(BASE_DIR, "templates", "register.html")
     with open(file_path) as f:
         return f.read()
 
@@ -98,6 +98,10 @@ async def login(user: UserLogin):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/logout")
+async def logout():
+    return RedirectResponse(url="/")
 
 @app.post("/messages")
 async def send_message(chat_id: int, content: str, user: dict = Depends(get_current_user)):

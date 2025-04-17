@@ -4,40 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YUChat</title>
-    <!-- Подключение основных стилей CSS -->
-    <link rel="stylesheet" href="../static/css/main.css" />
-    <!-- Добавление Material UI иконок -->
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/icon?family=Material+Icons"
-    />
-    <script
-      src="https://unpkg.com/@mui/material@latest/umd/material-ui.development.js"
-      crossorigin="anonymous"
-    ></script>
+    <link rel="stylesheet" href="/static/css/main.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <script src="https://unpkg.com/@mui/material@latest/umd/material-ui.development.js" crossorigin="anonymous"></script>
   </head>
   <body>
-    <!-- Основной контейнер чата -->
     <div class="container">
-      <!-- Левая боковая панель (сайдбар) с контактами -->
       <div class="sidebar">
-        <!-- Блок поиска с кнопкой меню и кнопкой поиска -->
         <div class="search">
-          <!-- Кнопка для открытия/закрытия бокового меню -->
           <button id="menu-btn" class="menu-btn">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <!-- Поле ввода для поиска контактов с поиск-иконкой внутри -->
           <div class="search-input-wrapper">
             <i class="material-icons search-icon">search</i>
-            <input
-              type="text"
-              class="search-contact"
-              placeholder="Search here..."
-            />
+            <input type="text" class="search-contact" placeholder="Search here..." />
           </div>
         </div>
-
         <div id="menu" class="menu hidden">
           <div id="profile" class="profile">
             <div class="profile-avatar">
@@ -53,22 +35,17 @@
           </div>
           <div class="menu-options">
             <button id="add-group">
-              <ion-icon name="people-outline" class="menu-icon"></ion-icon> Add
-              Group
+              <ion-icon name="people-outline" class="menu-icon"></ion-icon> Add Group
             </button>
             <button id="add-user">
-              <ion-icon name="person-outline" class="menu-icon"></ion-icon> Add
-              User
+              <ion-icon name="person-outline" class="menu-icon"></ion-icon> Add User
             </button>
             <button id="logout">
               <ion-icon name="exit-outline" class="menu-icon"></ion-icon> Logout
             </button>
           </div>
         </div>
-
-        <!-- Список контактов -->
         <div class="contacts-list">
-          <!-- Контакт с активным статусом (выделен как текущий чат) -->
           <div class="contact active">
             <div class="contact-avatar">
               <img src="/static/images/avatar.png" alt="Alym" />
@@ -77,11 +54,8 @@
               <h3>Alym</h3>
               <p>Last message...</p>
             </div>
-            <!-- Индикатор онлайн-статуса (зеленый кружок) -->
             <div class="contact-status online"></div>
           </div>
-
-          <!-- Контакт offline (серый индикатор статуса) -->
           <div class="contact">
             <div class="contact-avatar">
               <img src="/static/images/avatar.png" alt="Akbar" />
@@ -92,8 +66,6 @@
             </div>
             <div class="contact-status"></div>
           </div>
-
-          <!-- Контакт online (зеленый индикатор статуса) -->
           <div class="contact">
             <div class="contact-avatar">
               <img src="/static/images/avatar.png" alt="Talant" />
@@ -104,8 +76,6 @@
             </div>
             <div class="contact-status online"></div>
           </div>
-
-          <!-- Контакт offline (серый индикатор статуса) -->
           <div class="contact">
             <div class="contact-avatar">
               <img src="/static/images/avatar.png" alt="Ishak" />
@@ -118,10 +88,7 @@
           </div>
         </div>
       </div>
-
-      <!-- Основная область чата -->
       <div class="chat-area">
-        <!-- Шапка чата с информацией о текущем контакте -->
         <div class="chat-header">
           <div class="current-contact">
             <div class="contact-avatar">
@@ -132,50 +99,28 @@
               <p>Online</p>
             </div>
           </div>
-          <!-- Кнопки действий в чате (меню опций) -->
           <div class="chat-actions">
             <button id="user-menu-btn">
               <ion-icon name="ellipsis-vertical"></ion-icon>
             </button>
           </div>
         </div>
-
-        <!-- Область сообщений (здесь будут отображаться сообщения) -->
-        <div class="messages">
-          <!-- Сообщения будут добавлены динамически с помощью JavaScript -->
-        </div>
-
-        <!-- Поле ввода сообщений с кнопками -->
+        <div class="messages" id="message-container"></div>
         <div class="message-input">
-          <!-- Кнопка для прикрепления изображений к сообщению -->
           <button id="media-button" class="media-button">
             <ion-icon name="images-outline"></ion-icon>
           </button>
-          <!-- Hidden file input for media uploads -->
           <input type="file" id="media-input" accept="image/*,video/*" style="display: none;" multiple>
-
-          <!-- Обертка для поля ввода и кнопки эмодзи (позволяет правильно выровнять) -->
           <div class="input-wrapper">
-            <!-- Поле для ввода текста сообщения -->
-            <input
-              id="message-text"
-              type="text"
-              class="chat-input"
-              placeholder="Enter message..."
-            />
-            <!-- Кнопка выбора эмодзи (позиционирована внутри поля ввода) -->
+            <input id="message-text" type="text" class="chat-input" placeholder="Enter message..." />
             <button type="button" class="emoji-button">
               <ion-icon name="happy-outline" class="emoji-icon"></ion-icon>
             </button>
           </div>
-
-          <!-- Кнопка отправки сообщения -->
-          <button type="submit" class="send-button">
+          <button type="submit" id="send-button" class="send-button">
             <ion-icon name="send-outline"></ion-icon>
           </button>
         </div>
-        
-        <!-- Emoji picker container -->
         <div id="emoji-picker-container" class="emoji-picker-container hidden">
           <div class="emoji-picker-header">
             <h3>Выберите эмодзи</h3>
@@ -189,8 +134,6 @@
           </div>
           <div id="emoji-grid" class="emoji-grid"></div>
         </div>
-        
-        <!-- Media preview container -->
         <div id="media-preview-container" class="media-preview-container hidden">
           <div class="media-preview-header">
             <h3>Media Preview</h3>
@@ -198,14 +141,10 @@
               <ion-icon name="close-outline"></ion-icon>
             </button>
           </div>
-          <div id="media-preview-content" class="media-preview-content">
-            <!-- Preview items will be added here dynamically -->
-          </div>
+          <div id="media-preview-content" class="media-preview-content"></div>
         </div>
       </div>
     </div>
-
-    <!-- Контейнер для добавления нового контакта -->
     <div id="add-user-container" class="modal-container hidden">
       <div class="modal-content">
         <h2>Новый Контакт</h2>
@@ -217,18 +156,12 @@
             <input type="text" id="new-contact-name" placeholder="Имя" />
           </div>
           <div class="form-buttons">
-            <button id="cancel-add-contact" class="action-btn cancel-btn">
-              Отмена
-            </button>
-            <button id="add-contact-btn" class="action-btn add-btn">
-              Добавить
-            </button>
+            <button id="cancel-add-contact" class="action-btn cancel-btn">Отмена</button>
+            <button id="add-contact-btn" class="action-btn add-btn">Добавить</button>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Контейнер для добавления новой группы -->
     <div id="add-group-container" class="modal-container hidden">
       <div class="modal-content">
         <h2>Новая Группа</h2>
@@ -237,25 +170,15 @@
             <div class="contact-icon">
               <ion-icon name="people-outline" class="form-icon"></ion-icon>
             </div>
-            <input
-              type="text"
-              id="new-contact-name"
-              placeholder="Название группы"
-            />
+            <input type="text" id="new-contact-name" placeholder="Название группы" />
           </div>
           <div class="form-buttons">
-            <button id="cancel-add-group" class="action-btn cancel-btn">
-              Отмена
-            </button>
-            <button id="add-group-btn" class="action-btn add-btn">
-              Добавить
-            </button>
+            <button id="cancel-add-group" class="action-btn cancel-btn">Отмена</button>
+            <button id="add-group-btn" class="action-btn add-btn">Добавить</button>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Контейнер для редактирования профиля -->
     <div id="edit-profile-container" class="modal-container hidden">
       <div class="modal-content edit-profile-modal">
         <div class="edit-profile-header">
@@ -275,11 +198,7 @@
             <div class="edit-icon">
               <ion-icon name="person-outline" class="form-icon"></ion-icon>
             </div>
-            <input
-              type="text"
-              id="edit-username"
-              placeholder="Имя пользователя"
-            />
+            <input type="text" id="edit-username" placeholder="Имя пользователя" />
           </div>
           <div class="edit-form-row">
             <div class="edit-icon">
@@ -296,8 +215,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Меню пользователя -->
     <div id="user-menu" class="user-menu hidden">
       <button class="clear-btn">
         <ion-icon name="trash-outline" class="user-menu-icon"></ion-icon>
@@ -308,8 +225,7 @@
         Удалить чат
       </button>
     </div>
-
-     <div id="confirmation-modal" class="confirmation-modal hidden">
+    <div id="confirmation-modal" class="confirmation-modal hidden">
       <div class="confirmation-content">
         <p>Вы точно хотите удалить чат?</p>
         <div class="confirmation-buttons">
@@ -321,13 +237,9 @@
           </button>
         </div>
       </div>
-    </div> 
-
-    <!-- Media Lightbox -->
+    </div>
     <div id="media-lightbox" class="media-lightbox hidden">
-      <div class="lightbox-content">
-        <!-- Media content will be inserted here dynamically -->
-      </div>
+      <div class="lightbox-content"></div>
       <div class="lightbox-controls">
         <button id="close-lightbox" class="lightbox-btn">
           <ion-icon name="close-outline"></ion-icon>
@@ -337,17 +249,8 @@
         </button>
       </div>
     </div>
-
-    <!-- Подключение JavaScript для функциональности чата -->
-    <script src="../static/js/main.js"></script>
-    <!-- Подключение библиотеки иконок Ionicons -->
-    <script
-      type="module"
-      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"
-    ></script>
-    <script
-      nomodule
-      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"
-    ></script>
+    <script src="/static/js/main.js"></script>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   </body>
 </html>

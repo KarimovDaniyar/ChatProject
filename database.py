@@ -2,14 +2,11 @@ import sqlite3
 from passlib.context import CryptContext
 from datetime import datetime
 
-# Инициализация контекста для хеширования паролей
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def init_db():
     conn = sqlite3.connect("DataBase.db")
     cursor = conn.cursor()
-    
-    # Создание таблиц
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
