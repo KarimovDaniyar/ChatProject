@@ -1,21 +1,53 @@
-document.getElementById('loginForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
-  
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-  
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: email, password })
-    });
-  
-    const data = await res.json();
-  
-    if (data.success) {
-      window.location.href = '/main'; // или куда ты хочешь перекинуть
-    } else {
-      alert(data.message || 'Неверный логин или пароль');
-    }
-  });
-  
+document.addEventListener("DOMContentLoaded", () => {
+  // Обработка формы входа
+  const loginForm = document.querySelector("#login-form");
+  if (loginForm) {
+      loginForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const username = document.querySelector("#username").value;
+          const password = document.querySelector("#password").value;
+          try {
+              const response = await fetch("/login", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ username, password })
+              });
+              const data = await response.json();
+              if (response.ok) {
+                  localStorage.setItem("token", data.access_token);
+                  window.location.href = "/chat";
+              } else {
+                  alert(data.detail);
+              }
+          } catch (error) {
+              console.error("Login error:", error);
+          }
+      });
+  }
+
+  // Обработка формы регистрации
+  const registerForm = document.querySelector("#register-form");
+  if (registerForm) {
+      registerForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const username = document.querySelector("#reg-username").value;
+          const password = document.querySelector("#reg-password").value;
+          try {
+              const response = await fetch("/register", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ username, password })
+              });
+              const data = await response.json();
+              if (response.ok) {
+                  alert("Registration successful! Please log in.");
+                  window.location.href = "/";
+              } else {
+                  alert(data.detail);
+              }
+          } catch (error) {
+              console.error("Registration error:", error);
+          }
+      });
+  }
+});
