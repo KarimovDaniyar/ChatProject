@@ -70,6 +70,11 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+# Модель для сообщения
+class MessageCreate(BaseModel):
+    chat_id: int
+    content: str
+
 # Получение текущего пользователя из токена (для заголовков)
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     payload = decode_access_token(token)
@@ -120,7 +125,7 @@ async def serve_login():
 
 @app.get("/chat", response_class=HTMLResponse)
 async def serve_chat(token: Optional[str] = Query(None)):
-    try:
+    try :
         current_user = await get_current_user_from_query(token)
         file_path = os.path.join(BASE_DIR, "templates", "main.html")
         with open(file_path, encoding="utf-8") as f:
@@ -157,10 +162,15 @@ async def logout():
     return RedirectResponse(url="/")
 
 @app.post("/messages")
-async def send_message(chat_id: int, content: str, user: dict = Depends(get_current_user)):
-    chat_id = get_or_create_chat(chat_id)
-    create_message(chat_id, user["id"], content)
-    await manager.broadcast({"user_id": user["id"], "username": user["username"], "content": content, "type": "message"}, chat_id)
+async def send_message(message: MessageCreate, user: dict = Depends(get_current_user)):
+    chat_id = get_or_create_chat(message.chat_id)
+    create_message(chat_id, user["id"], message.content)
+    await manager.broadcast({
+        "user_id": user["id"],
+        "username": user["username"],
+        "content": message.content,
+        "type": "message"
+    }, chat_id)
     return {"status": "Message sent"}
 
 @app.get("/messages/{chat_id}")
