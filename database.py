@@ -1,93 +1,108 @@
 import sqlite3
 from passlib.context import CryptContext
 
-# Настройка хеширования паролей
+DATABASE = 'chat.db'
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def init_db():
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS chats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER,
-        user_id INTEGER,
-        content TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (chat_id) REFERENCES chats(id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )''')
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (chat_id) REFERENCES chats(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
     conn.commit()
     conn.close()
 
-def create_user(username: str, password: str):
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def create_user(username, password):
+    conn = get_db()
+    hashed_password = pwd_context.hash(password)
     try:
-        hashed_password = pwd_context.hash(password)
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
         conn.commit()
-        return {"id": c.lastrowid, "username": username}
+        user_id = cursor.lastrowid
+        return {"id": user_id, "username": username}
     except sqlite3.IntegrityError:
         return None
     finally:
         conn.close()
 
-def get_user_by_username(username: str):
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute("SELECT id, username, password FROM users WHERE username = ?", (username,))
-    user = c.fetchone()
+def get_user_by_username(username):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
     conn.close()
-    if user:
-        return {"id": user[0], "username": user[1], "password": user[2]}
-    return None
+    return dict(user) if user else None
 
-def get_all_users():
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute("SELECT id, username FROM users")
-    users = c.fetchall()
-    conn.close()
-    return [{"id": user[0], "username": user[1]} for user in users]
-
-def verify_password(plain_password: str, hashed_password: str):
+def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-def create_message(chat_id: int, user_id: int, content: str):
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO messages (chat_id, user_id, content) VALUES (?, ?, ?)", (chat_id, user_id, content))
-    conn.commit()
+def get_or_create_chat(chat_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM chats WHERE id = ?", (chat_id,))
+    chat = cursor.fetchone()
+    if not chat:
+        pass
     conn.close()
+    return chat_id
 
-def get_messages(chat_id: int):
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute("""
-        SELECT m.id, m.chat_id, m.user_id, m.content, m.timestamp, u.username
+def create_message(chat_id, user_id, content):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO messages (chat_id, user_id, content) VALUES (?, ?, ?)",
+                   (chat_id, user_id, content))
+    conn.commit()
+    message_id = cursor.lastrowid
+    conn.close()
+    return message_id
+
+def get_messages(chat_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT m.id, m.content, m.timestamp, u.username
         FROM messages m
         JOIN users u ON m.user_id = u.id
         WHERE m.chat_id = ?
-        ORDER BY m.timestamp
-    """, (chat_id,))
-    messages = c.fetchall()
+        ORDER BY m.timestamp ASC
+    ''', (chat_id,))
+    messages = cursor.fetchall()
     conn.close()
-    return [{"id": m[0], "chat_id": m[1], "user_id": m[2], "content": m[3], "timestamp": m[4], "username": m[5]} for m in messages]
+    return [dict(msg) for msg in messages]
 
-def get_or_create_chat(chat_id: int):
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO chats (id) VALUES (?)", (chat_id,))
-    conn.commit()
-    c.execute("SELECT id FROM chats WHERE id = ?", (chat_id,))
-    chat = c.fetchone()
+def get_all_users():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users")
+    users = cursor.fetchall()
     conn.close()
-    return chat[0] if chat else chat_id
+    return [dict(user) for user in users]
