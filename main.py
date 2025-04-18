@@ -8,6 +8,7 @@ from typing import List, Dict, Optional
 import sqlite3
 from database import init_db, create_user, get_user_by_username, verify_password, create_message, get_messages, get_or_create_chat, get_all_users
 from security import create_access_token, decode_access_token
+from datetime import datetime
 
 app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
@@ -29,7 +30,7 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, chat_id: int, user: dict):
         await websocket.accept()
-        if chat_id not in self.active_connections:
+        if (chat_id not in self.active_connections):
             self.active_connections[chat_id] = []
             self.active_users[chat_id] = []
         if not any(u["id"] == user["id"] for u in self.active_users[chat_id]):
@@ -166,18 +167,6 @@ async def list_users(user: dict = Depends(get_current_user)):
     users = get_all_users()
     return users
 
-@app.post("/messages")
-async def send_message(message: MessageCreate, user: dict = Depends(get_current_user)):
-    chat_id = get_or_create_chat(message.chat_id)
-    create_message(chat_id, user["id"], message.content)
-    await manager.broadcast({
-        "user_id": user["id"],
-        "username": user["username"],
-        "content": message.content,
-        "type": "message"
-    }, chat_id)
-    return {"status": "Message sent"}
-
 @app.get("/messages/{chat_id}")
 async def list_messages(chat_id: int, user: dict = Depends(get_current_user)):
     chat_id = get_or_create_chat(chat_id)
@@ -188,6 +177,7 @@ async def list_messages(chat_id: int, user: dict = Depends(get_current_user)):
 async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = Depends(get_current_user_ws)):
     chat_id = get_or_create_chat(chat_id)
     await manager.connect(websocket, chat_id, user)
+    # Системное сообщение о подключении
     await manager.broadcast({
         "user_id": user["id"],
         "username": user["username"],
@@ -197,15 +187,33 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
     try:
         while True:
             data = await websocket.receive_json()
-            data["user_id"] = user["id"]
-            data["username"] = user["username"]
-            data["type"] = "message"
-            await manager.broadcast(data, chat_id)
+            content = data.get("content")
+            if content:
+                # Сохраняем сообщение в БД
+                message_id = create_message(chat_id, user["id"], content)
+                # Готовим сообщение для рассылки
+                message_to_broadcast = {
+                    "id": message_id, # Добавляем ID сообщения
+                    "user_id": user["id"],
+                    "username": user["username"],
+                    "content": content,
+                    "type": "message",
+                    "timestamp": datetime.utcnow().isoformat() + "Z" # Добавляем временную метку
+                }
+                await manager.broadcast(message_to_broadcast, chat_id)
+            else:
+                print(f"Received empty message or invalid format from {user['username']}: {data}")
+
     except WebSocketDisconnect:
         manager.disconnect(websocket, chat_id, user)
+        # Системное сообщение об отключении
         await manager.broadcast({
             "user_id": user["id"],
             "username": user["username"],
             "content": f"{user['username']} left the chat",
             "type": "system"
         }, chat_id)
+    except Exception as e:
+        print(f"Error in WebSocket for user {user.get('username', 'unknown')}: {e}")
+        manager.disconnect(websocket, chat_id, user)
+        # Можно добавить broadcast об ошибке, если нужно

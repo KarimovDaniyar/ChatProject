@@ -252,35 +252,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (mediaFiles.length > 0) {
                 content += mediaFiles.map(file => ` [Media: ${file.name}]`).join('');
             }
-            console.log("Sending message:", content);
-            const response = await fetch("/messages", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ chat_id: chatId, content })
-                        });
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            if (response.status === 401) {
-                                console.log("Unauthorized, redirecting to login");
-                                localStorage.removeItem("token");
-                                window.location.href = "/";
-                                return;
-                            }
-                            throw new Error(`Failed to send message: ${response.status} ${response.statusText} - ${errorData.detail || "Unknown error"}`);
-                        }
-                        const result = await response.json();
-                        console.log("Message sent successfully:", result);
-            if (ws.readyState === WebSocket.OPEN) { 
+            console.log("Sending message via WebSocket:", content); // Изменено
+            if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     content: content,
-                    username: getCurrentUserId(),
+                    // username: getCurrentUserId(), // username будет добавлен на бэкенде
                     type: "message"
                 }));
             } else {
                 console.error("WebSocket is not open, cannot send message");
+                // Можно добавить логику для повторной попытки или уведомления пользователя
             }
         } catch (error) {
             console.error("Send message error:", error);
