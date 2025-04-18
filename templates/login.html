@@ -2,43 +2,33 @@
 <html lang="en">
   <head>
     <title>Chat</title>
-    <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css">
   </head>
-
   <body>
     <div class="LogRegBox">
-      <form action="">
+      <form id="login-form">
         <h2>Login</h2>
         <div class="input-box">
           <span class="icon"><ion-icon name="mail"></ion-icon></span>
-          <input type="email" placeholder="" required />
-          <label>Email</label>
+          <input type="text" id="username" placeholder="" required />
+          <label>Username</label>
         </div>
         <div class="input-box">
           <span class="icon"><ion-icon name="lock-closed"></ion-icon></span>
-          <input type="password" placeholder="" required />
+          <input type="password" id="password" placeholder="" required />
           <label>Password</label>
         </div>
         <a>Forgot</a>
         <div>
-          <button type="submit">
-            Login
-          </button>
+          <button type="submit">Login</button>
           <div class="register-link" style="margin-top: 10px;">
-            <p style="color: white;">Don't have an account? <a style="padding-left: 30px;" class="link" href="#">Register</a></p>
+            <p style="color: white;">Don't have an account? <a style="padding-left: 30px;" class="link" href="/register">Register</a></p>
           </div>
         </div>
       </form>
     </div>
-
-    <script src="script.js"></script>
-    <script
-      type="module"
-      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"
-    ></script>
-    <script
-      nomodule
-      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"
-    ></script>
+    <script src="/static/js/script.js"></script>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   </body>
 </html>
