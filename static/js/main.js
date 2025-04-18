@@ -254,26 +254,26 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             console.log("Sending message:", content);
             const response = await fetch("/messages", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({ chat_id: chatId, content })
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                if (response.status === 401) {
-                    console.log("Unauthorized, redirecting to login");
-                    localStorage.removeItem("token");
-                    window.location.href = "/";
-                    return;
-                }
-                throw new Error(`Failed to send message: ${response.status} ${response.statusText} - ${errorData.detail || "Unknown error"}`);
-            }
-            const result = await response.json();
-            console.log("Message sent successfully:", result);
-            if (ws.readyState === WebSocket.OPEN) {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Authorization": `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ chat_id: chatId, content })
+                        });
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            if (response.status === 401) {
+                                console.log("Unauthorized, redirecting to login");
+                                localStorage.removeItem("token");
+                                window.location.href = "/";
+                                return;
+                            }
+                            throw new Error(`Failed to send message: ${response.status} ${response.statusText} - ${errorData.detail || "Unknown error"}`);
+                        }
+                        const result = await response.json();
+                        console.log("Message sent successfully:", result);
+            if (ws.readyState === WebSocket.OPEN) { 
                 ws.send(JSON.stringify({
                     content: content,
                     username: getCurrentUserId(),
@@ -547,7 +547,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     mediaInput.addEventListener('change', function() {
-        if (this.files.length > 0) {
+        if (this.files.length > 0) {          
             handleMediaFiles(this.files);
         }
     });
@@ -560,7 +560,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const previewItem = document.createElement('div');
-                    previewItem.className = 'preview-item';
+                    previewItem.className = 'preview-item';               
                     if (file.type.startsWith('image/')) {
                         previewItem.innerHTML = `
                             <img src="${e.target.result}" alt="Preview">
@@ -593,7 +593,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.closest('.remove-preview')) {
             const button = e.target.closest('.remove-preview');
             const index = parseInt(button.getAttribute('data-index'));
-            selectedMedia.splice(index, 1);
+                selectedMedia.splice(index, 1);
             button.closest('.preview-item').remove();
             document.querySelectorAll('.remove-preview').forEach((btn, idx) => {
                 btn.setAttribute('data-index', idx);
@@ -621,9 +621,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 downloadMediaBtn.setAttribute('data-filename', 'video_' + new Date().getTime() + '.mp4');
             } else {
                 lightboxContent.innerHTML = `<img src="${mediaUrl}" alt="Full size image">`;
-                downloadMediaBtn.setAttribute('data-src', mediaUrl);
-                downloadMediaBtn.setAttribute('data-filename', 'image_' + new Date().getTime() + '.jpg');
-            }
+            downloadMediaBtn.setAttribute('data-src', mediaUrl);
+            downloadMediaBtn.setAttribute('data-filename', 'image_' + new Date().getTime() + '.jpg');
+        }
             mediaLightbox.classList.remove('hidden');
         }
     });

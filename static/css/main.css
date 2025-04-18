@@ -6,6 +6,54 @@
     font-family: 'Poppins', sans-serif;
 }
 
+/* Custom scrollbar styling - Messenger style */
+/* For Webkit browsers like Chrome, Safari */
+.messages::-webkit-scrollbar {
+    width: 6px; /* Тоньше полоса прокрутки */
+}
+
+.messages::-webkit-scrollbar-track {
+    background: transparent; /* Прозрачный фон */
+}
+
+.messages::-webkit-scrollbar-thumb {
+    background: rgba(212, 214, 201, 0.5); /* Полупрозрачная полоса прокрутки */
+    border-radius: 3px; /* Меньше скругление для стиля мессенджера */
+}
+
+.messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 214, 201, 0.8); /* Немного ярче при наведении */
+}
+
+/* For Firefox */
+.messages {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 214, 201, 0.5) transparent;
+}
+
+/* Also add styles for contacts-list scrollbar */
+.contacts-list::-webkit-scrollbar {
+    width: 6px; /* Тоньше полоса прокрутки */
+}
+
+.contacts-list::-webkit-scrollbar-track {
+    background: transparent; /* Прозрачный фон */
+}
+
+.contacts-list::-webkit-scrollbar-thumb {
+    background: rgba(212, 214, 201, 0.5); /* Полупрозрачная полоса прокрутки */
+    border-radius: 3px; /* Меньше скругление для стиля мессенджера */
+}
+
+.contacts-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 214, 201, 0.8); /* Немного ярче при наведении */
+}
+
+.contacts-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 214, 201, 0.5) transparent;
+}
+
 /* Стили для страницы */
 body {
     height: 100vh;
@@ -1008,6 +1056,7 @@ body {
     align-items: center;
     justify-content: center;
     flex-direction: column;
+    transition: opacity 0.3s ease;
 }
 
 .media-lightbox.hidden {
@@ -1017,6 +1066,10 @@ body {
 .lightbox-content {
     max-width: 90%;
     max-height: 80%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .lightbox-content img,
@@ -1024,6 +1077,30 @@ body {
     max-width: 100%;
     max-height: 80vh;
     object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.lightbox-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+    z-index: 3100;
+}
+
+.lightbox-title {
+    color: white;
+    font-size: 18px;
+    max-width: 70%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .lightbox-controls {
@@ -1033,23 +1110,49 @@ body {
 }
 
 .lightbox-btn {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
     cursor: pointer;
     font-size: 24px;
-    padding: 8px;
+    padding: 12px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     transition: background 0.3s;
 }
 
 .lightbox-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.lightbox-btn.download-btn {
+    background: rgba(37, 211, 102, 0.8); /* WhatsApp green */
+}
+
+.lightbox-btn.download-btn:hover {
+    background: rgba(37, 211, 102, 1);
+}
+
+.lightbox-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-image: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+    z-index: 3100;
+}
+
+.media-info {
+    color: white;
+    font-size: 14px;
 }
 
 /* Адаптивные настройки для мобильных устройств */

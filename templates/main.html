@@ -46,46 +46,6 @@
           </div>
         </div>
         <div class="contacts-list">
-          <div class="contact active">
-            <div class="contact-avatar">
-              <img src="/static/images/avatar.png" alt="Alym" />
-            </div>
-            <div class="contact-info">
-              <h3>Alym</h3>
-              <p>Last message...</p>
-            </div>
-            <div class="contact-status online"></div>
-          </div>
-          <div class="contact">
-            <div class="contact-avatar">
-              <img src="/static/images/avatar.png" alt="Akbar" />
-            </div>
-            <div class="contact-info">
-              <h3>Akbar</h3>
-              <p>Last message...</p>
-            </div>
-            <div class="contact-status"></div>
-          </div>
-          <div class="contact">
-            <div class="contact-avatar">
-              <img src="/static/images/avatar.png" alt="Talant" />
-            </div>
-            <div class="contact-info">
-              <h3>Talant</h3>
-              <p>Last message...</p>
-            </div>
-            <div class="contact-status online"></div>
-          </div>
-          <div class="contact">
-            <div class="contact-avatar">
-              <img src="/static/images/avatar.png" alt="Ishak" />
-            </div>
-            <div class="contact-info">
-              <h3>Iskhak</h3>
-              <p>Last message...</p>
-            </div>
-            <div class="contact-status"></div>
-          </div>
         </div>
       </div>
       <div class="chat-area">
@@ -95,8 +55,8 @@
               <img src="/static/images/avatar.png" alt="Alym" />
             </div>
             <div class="contact-info">
-              <h3>Alym</h3>
-              <p>Online</p>
+              <h3></h3>
+              <p></p>
             </div>
           </div>
           <div class="chat-actions">
@@ -112,7 +72,7 @@
           </button>
           <input type="file" id="media-input" accept="image/*,video/*" style="display: none;" multiple>
           <div class="input-wrapper">
-            <input id="message-text" type="text" class="chat-input" placeholder="Enter message..." />
+            <input id="message-text" type="text" class="chat-input" placeholder="Enter message..."  autocomplete="off" />
             <button type="button" class="emoji-button">
               <ion-icon name="happy-outline" class="emoji-icon"></ion-icon>
             </button>
@@ -239,14 +199,25 @@
       </div>
     </div>
     <div id="media-lightbox" class="media-lightbox hidden">
-      <div class="lightbox-content"></div>
-      <div class="lightbox-controls">
+      <div class="lightbox-header">
+        <div class="lightbox-title">Изображение</div>
         <button id="close-lightbox" class="lightbox-btn">
           <ion-icon name="close-outline"></ion-icon>
         </button>
-        <button id="download-media" class="lightbox-btn">
-          <ion-icon name="download-outline"></ion-icon>
-        </button>
+      </div>
+      <div class="lightbox-content"></div>
+      <div class="lightbox-footer">
+        <div class="media-info">
+          <span class="media-date"></span>
+        </div>
+        <div class="lightbox-controls">
+          <button id="download-media" class="lightbox-btn download-btn" title="Скачать медиафайл">
+            <ion-icon name="download-outline"></ion-icon>
+          </button>
+          <button id="share-media" class="lightbox-btn" title="Поделиться">
+            <ion-icon name="share-social-outline"></ion-icon>
+          </button>
+        </div>
       </div>
     </div>
     <script src="/static/js/main.js"></script>
