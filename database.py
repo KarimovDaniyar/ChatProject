@@ -32,6 +32,16 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
+    # Add new contacts table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS contacts (
+            user_id INTEGER,
+            contact_id INTEGER,
+            PRIMARY KEY (user_id, contact_id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (contact_id) REFERENCES users(id)
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -103,6 +113,67 @@ def get_all_users():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT id, username FROM users")
+    users = cursor.fetchall()
+    conn.close()
+    return [dict(user) for user in users]
+
+# Add the missing functions
+def add_contact(user_id, contact_id):
+    """Add a contact for the user. Returns True if successful."""
+    if user_id == contact_id:
+        return False  # Can't add yourself as a contact
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Check if contact exists
+        cursor.execute("SELECT id FROM users WHERE id = ?", (contact_id,))
+        if not cursor.fetchone():
+            return False  # Contact doesn't exist
+            
+        # Check if already a contact
+        cursor.execute(
+            "SELECT 1 FROM contacts WHERE user_id = ? AND contact_id = ?", 
+            (user_id, contact_id)
+        )
+        if cursor.fetchone():
+            return False  # Already a contact
+            
+        # Add the contact
+        cursor.execute(
+            "INSERT INTO contacts (user_id, contact_id) VALUES (?, ?)",
+            (user_id, contact_id)
+        )
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_contacts(user_id):
+    """Get all contacts for a user."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT u.id, u.username
+        FROM users u
+        JOIN contacts c ON u.id = c.contact_id
+        WHERE c.user_id = ?
+    ''', (user_id,))
+    contacts = cursor.fetchall()
+    conn.close()
+    return [dict(contact) for contact in contacts]
+
+def search_users(query, current_user_id):
+    """Search for users by username, excluding the current user."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, username FROM users WHERE username LIKE ? AND id != ?",
+        (f"%{query}%", current_user_id)
+    )
     users = cursor.fetchall()
     conn.close()
     return [dict(user) for user in users]
