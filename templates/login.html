@@ -2,43 +2,34 @@
 <html lang="en">
   <head>
     <title>Chat</title>
-    <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css">
   </head>
-
   <body>
     <div class="LogRegBox">
-      <form action="">
+      <form id="login-form" autocomplete="off">
         <h2>Login</h2>
         <div class="input-box">
           <span class="icon"><ion-icon name="mail"></ion-icon></span>
-          <input type="email" placeholder="" required />
-          <label>Email</label>
+          <input type="text" id="username" placeholder="" required autocomplete="off" />
+          <label>Username</label>
         </div>
         <div class="input-box">
           <span class="icon"><ion-icon name="lock-closed"></ion-icon></span>
-          <input type="password" placeholder="" required />
+          <input type="password" id="password" placeholder="" required autocomplete="off" />
           <label>Password</label>
         </div>
-        <a>Forgot</a>
+        <p id="login-error" style="color: red; text-align: center; margin-top: 10px;"></p> <!-- Добавлено -->
+        <a style="color: white">Forgot password?</a>
         <div>
-          <button type="submit">
-            Login
-          </button>
-          <div class="register-link" style="margin-top: 10px;">
-            <p style="color: white;">Don't have an account? <a style="padding-left: 30px;" class="link" href="#">Register</a></p>
+          <button style="margin-top: 7px" type="submit">Login</button>
+          <div class="register-link" style="margin-top: 15px;">
+            <p style="color: white;">Don't have an account? <a style="padding-left: 10px;" class="link" href="/register">Register</a></p>
           </div>
         </div>
       </form>
     </div>
-
-    <script src="script.js"></script>
-    <script
-      type="module"
-      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"
-    ></script>
-    <script
-      nomodule
-      src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"
-    ></script>
+    <script src="/static/js/script.js"></script>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   </body>
 </html>
