@@ -1,7 +1,5 @@
 import sqlite3
 from passlib.context import CryptContext
-import base64
-import os
 
 # Настройка хеширования паролей
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -24,15 +22,6 @@ def init_db():
         content TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (chat_id) REFERENCES chats(id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS media_files (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        filename TEXT NOT NULL,
-        content_type TEXT NOT NULL,
-        data BLOB NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
     )''')
     conn.commit()
@@ -102,36 +91,3 @@ def get_or_create_chat(chat_id: int):
     chat = c.fetchone()
     conn.close()
     return chat[0] if chat else chat_id
-
-def save_media_file(user_id: int, filename: str, content_type: str, file_data: bytes):
-    """Save media file directly to database"""
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO media_files (user_id, filename, content_type, data) VALUES (?, ?, ?, ?)", 
-              (user_id, filename, content_type, file_data))
-    conn.commit()
-    media_id = c.lastrowid
-    conn.close()
-    return {"id": media_id, "filename": filename}
-
-def get_media_file(filename: str):
-    """Retrieve media file from database"""
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute("SELECT content_type, data FROM media_files WHERE filename = ?", (filename,))
-    result = c.fetchone()
-    conn.close()
-    
-    if result:
-        content_type, file_data = result
-        return {"content_type": content_type, "data": file_data}
-    return None
-
-def get_user_media_files(user_id: int):
-    """Get all media files uploaded by a user"""
-    conn = sqlite3.connect("chat.db")
-    c = conn.cursor()
-    c.execute("SELECT id, filename, content_type, timestamp FROM media_files WHERE user_id = ? ORDER BY timestamp DESC", (user_id,))
-    files = c.fetchall()
-    conn.close()
-    return [{"id": f[0], "filename": f[1], "content_type": f[2], "timestamp": f[3]} for f in files]
