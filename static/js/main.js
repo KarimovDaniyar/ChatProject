@@ -6,7 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    const chatId = 1;
+    let currentChatId = null; // Добавьте эту переменную
+    let currentContactUsername = null; // Для хранения выбранного контакта
     const messageContainer = document.querySelector("#message-container");
     const messageInput = document.querySelector("#message-text");
     const sendButton = document.querySelector("#send-button");
@@ -118,12 +119,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 contact.addEventListener('click', function() {
                     contacts.forEach(c => c.classList.remove('active'));
                     this.classList.add('active');
+                    
                     const contactName = this.querySelector('.contact-info h3').textContent;
                     const contactImg = this.querySelector('.contact-avatar img').src;
                     const isOnline = this.querySelector('.contact-status.online') !== null;
+                    
+                    // Сохраняем текущий выбранный контакт
+                    currentContactUsername = contactName;
+                    
+                    // Устанавливаем chatId на основе имени пользователя
+                    // Используем простой хеш, чтобы получить уникальный ID
+                    currentChatId = hashString(currentUsername + '_' + contactName);
+                    
+                    // Обновляем заголовок чата
                     document.querySelector('.current-contact .contact-info h3').textContent = contactName;
                     document.querySelector('.current-contact .contact-info p').textContent = isOnline ? 'Online' : 'Offline';
                     document.querySelector('.current-contact .contact-avatar img').src = contactImg;
+                    
+                    // Переподключаемся к WebSocket с новым chatId
+                    reconnectWebSocket();
+                    
+                    // Загружаем сообщения для данного чата
                     loadMessages();
                 });
             });
@@ -136,10 +152,73 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Функция для хеширования строки и получения числового ID
+    function hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return Math.abs(hash); // Возвращаем положительное число
+    }
+
+    // Функция для переподключения WebSocket с новым chatId
+    function reconnectWebSocket() {
+        if (ws) {
+            ws.close();
+        }
+        
+        ws = new WebSocket(`ws://${window.location.host}/ws/${currentChatId}?token=${token}`);
+        
+        ws.onopen = () => {
+            console.log("WebSocket connection established for chat:", currentChatId);
+        };
+        
+        ws.onmessage = (event) => {
+            console.log("Received WebSocket message:", event.data);
+            const message = JSON.parse(event.data);
+            
+            // Остальной код обработки сообщений...
+            const isOutgoing = message.username === getCurrentUserId();
+            const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
+            displayMessage(
+                messageId,
+                message.content,
+                message.username,
+                isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
+                isOutgoing,
+                message.timestamp || new Date().toISOString(),
+                message.type || "message"
+            );
+            const contactElement = document.querySelector(`.contact[data-username="${message.username}"]`);
+            if (contactElement) {
+                const statusElement = contactElement.querySelector('.contact-status');
+                statusElement.classList.remove('offline');
+                statusElement.classList.add('online');
+                contactElement.querySelector('.contact-info p').textContent = 'Online';
+            }
+        };
+        
+        ws.onclose = (event) => {
+            console.log("WebSocket connection closed:", event);
+        };
+        
+        ws.onerror = (error) => {
+            console.error("WebSocket error:", error);
+        };
+    }
+
     async function loadMessages() {
         try {
-            console.log("Loading messages for chat_id:", chatId);
-            const response = await fetch(`/messages/${chatId}`, {
+            // Проверяем, выбран ли контакт
+            if (!currentChatId) {
+                console.log("No chat selected");
+                return;
+            }
+            
+            console.log("Loading messages for chat_id:", currentChatId);
+            const response = await fetch(`/messages/${currentChatId}`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
             if (!response.ok) {
@@ -164,65 +243,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    const ws = new WebSocket(`ws://${window.location.host}/ws/${chatId}?token=${token}`);
-    ws.onopen = () => {
-        console.log("WebSocket connection established");
-    };
-
-    ws.onmessage = (event) => {
-        console.log("Received WebSocket message:", event.data);
-        const message = JSON.parse(event.data);
-        if (message.type === "user_list") {
-            updateActiveUsers(message.users);
-        } else {
-            const isOutgoing = message.username === getCurrentUserId();
-            const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
-            displayMessage(
-                messageId,
-                message.content,
-                message.username,
-                isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
-                isOutgoing,
-                message.timestamp || new Date().toISOString(),
-                message.type || "message"
-            );
-            const contactElement = document.querySelector(`.contact[data-username="${message.username}"]`);
-            if (contactElement) {
-                const statusElement = contactElement.querySelector('.contact-status');
-                statusElement.classList.remove('offline');
-                statusElement.classList.add('online');
-                contactElement.querySelector('.contact-info p').textContent = 'Online';
-            }
-        }
-    };
-
-    ws.onclose = (event) => {
-        console.log("WebSocket connection closed:", event);
-    };
-
-    ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-    };
-
-    function updateActiveUsers(users) {
-        activeUsersList.innerHTML = "";
-        users.forEach(user => {
-            const userElement = document.createElement('div');
-            userElement.classList.add('active-user');
-            userElement.textContent = user.username;
-            activeUsersList.appendChild(userElement);
-            const contactElement = document.querySelector(`.contact[data-username="${user.username}"]`);
-            if (contactElement) {
-                const statusElement = contactElement.querySelector('.contact-status');
-                statusElement.classList.remove('offline');
-                statusElement.classList.add('online');
-                contactElement.querySelector('.contact-info p').textContent = 'Online';
-            }
-        });
-    }
-
+    let ws = null;
     sendButton.addEventListener("click", async () => {
         const content = messageInput.value.trim();
+        
+        // Проверяем, выбран ли контакт
+        if (!currentChatId || !currentContactUsername) {
+            console.log("No contact selected");
+            return;
+        }
+        
         if (content || selectedMedia.length > 0) {
             await sendMessage(content, selectedMedia);
             messageInput.value = "";
@@ -708,5 +738,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     loadContacts();
-    loadMessages();
 });

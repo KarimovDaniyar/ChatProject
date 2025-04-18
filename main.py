@@ -6,7 +6,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import sqlite3
-from database import init_db, create_user, get_user_by_username, verify_password, create_message, get_messages, get_or_create_chat, get_all_users
+# Обновляем импорты из database
+from database import (
+    init_db, create_user, get_user_by_username, verify_password,
+    create_message, get_messages, get_or_create_chat, get_all_users,
+    add_contact, get_contacts, search_users # Добавлены новые импорты
+)
 from security import create_access_token, decode_access_token
 from datetime import datetime
 
@@ -75,6 +80,10 @@ class UserLogin(BaseModel):
 class MessageCreate(BaseModel):
     chat_id: int
     content: str
+
+# Модель для добавления контактов
+class ContactsAdd(BaseModel):
+    contact_ids: List[int]
 
 # Получение текущего пользователя из токена (для заголовков)
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -166,6 +175,42 @@ async def logout():
 async def list_users(user: dict = Depends(get_current_user)):
     users = get_all_users()
     return users
+
+# Новый эндпоинт для получения контактов текущего пользователя
+@app.get("/contacts")
+async def read_contacts(user: dict = Depends(get_current_user)):
+    contacts = get_contacts(user["id"])
+    return contacts
+
+# Новый эндпоинт для добавления контактов
+@app.post("/contacts/add")
+async def add_contacts_route(contacts_to_add: ContactsAdd, user: dict = Depends(get_current_user)):
+    current_user_id = user["id"]
+    added_count = 0
+    for contact_id in contacts_to_add.contact_ids:
+        if contact_id != current_user_id: # Нельзя добавить себя
+            if add_contact(current_user_id, contact_id):
+                added_count += 1
+    if added_count > 0:
+         # Return the updated list of contacts
+         updated_contacts = get_contacts(current_user_id)
+         return {"status": f"{added_count} contacts added successfully.", "contacts": updated_contacts}
+    else:
+         # Handle cases where no contacts were added (e.g., all IDs were self or already contacts)
+         # Check if the list was empty or contained only self
+         if not contacts_to_add.contact_ids or all(cid == current_user_id for cid in contacts_to_add.contact_ids):
+              raise HTTPException(status_code=400, detail="No valid contact IDs provided.")
+         else:
+              # Assume they might already be contacts or another issue occurred
+              raise HTTPException(status_code=400, detail="Could not add contacts. They might already exist or IDs are invalid.")
+
+# Новый эндпоинт для поиска пользователей
+@app.get("/users/search")
+async def search_users_route(query: str = Query(..., min_length=1), user: dict = Depends(get_current_user)):
+    if not query:
+        return []
+    found_users = search_users(query, user["id"])
+    return found_users
 
 @app.get("/messages/{chat_id}")
 async def list_messages(chat_id: int, user: dict = Depends(get_current_user)):
