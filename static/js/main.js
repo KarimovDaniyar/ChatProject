@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
 
     const contacts = document.querySelectorAll('.contact');
+    const contactsList = document.querySelector('.contacts-list');
     // Update user data with correct path to avatar image
     const currentUser = {
         name: 'You',
@@ -111,19 +112,71 @@ document.addEventListener('DOMContentLoaded', function() {
         newGroupNameInput.value = ''; // Clear input field
     });
 
-    // Add new group when "Add" button is clicked (placeholder functionality)
+    // Add new group when "Add" button is clicked
     addGroupBtn.addEventListener('click', function() {
         const groupName = newGroupNameInput.value.trim();
         if (groupName) {
-            // In a real app, you would save the new group to your database
-            // For now, we'll just hide the modal
-            addGroupContainer.classList.add('hidden');
-            newGroupNameInput.value = ''; // Clear input field
+            // Create new group element
+            createNewGroup(groupName);
             
-            // You could add code here to dynamically create a new group in the UI
-            // This would be a good place to add that functionality in the future
+            // Hide the modal and clear input field
+            addGroupContainer.classList.add('hidden');
+            newGroupNameInput.value = '';
         }
     });
+
+    // Function to create and add a new group to the contacts list
+    function createNewGroup(groupName) {
+        // Create the group element
+        const groupElement = document.createElement('div');
+        groupElement.className = 'contact';
+        groupElement.dataset.type = 'group'; // Mark this as a group for differentiation
+        
+        // Group HTML structure
+        groupElement.innerHTML = `
+            <div class="contact-avatar">
+                <img src="/static/images/avatar.png" alt="${groupName}">
+            </div>
+            <div class="contact-info">
+                <h3>${groupName}</h3>
+                <p>Group chat</p>
+            </div>
+            <div class="contact-status"></div>
+        `;
+        
+        // Add click event listener to the new group
+        groupElement.addEventListener('click', function() {
+            // Remove active class from all contacts
+            contacts.forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
+            
+            // Add active class to this group
+            this.classList.add('active');
+            
+            // Update chat header with group info
+            const groupName = this.querySelector('.contact-info h3').textContent;
+            const groupImg = this.querySelector('.contact-avatar img').src;
+            
+            document.querySelector('.current-contact .contact-info h3').textContent = groupName;
+            document.querySelector('.current-contact .contact-info p').textContent = 'Group';
+            document.querySelector('.current-contact .contact-avatar img').src = groupImg;
+            
+            // Clear chat messages since this is a new group
+            const messages = document.querySelector('.messages');
+            messages.innerHTML = '';
+        });
+        
+        // Add the new group to the contacts list at the top
+        const contactsList = document.querySelector('.contacts-list');
+        if (contactsList.firstChild) {
+            contactsList.insertBefore(groupElement, contactsList.firstChild);
+        } else {
+            contactsList.appendChild(groupElement);
+        }
+        
+        // Automatically select the new group
+        groupElement.click();
+    }
 
     // Close modal when clicking outside for group
     addGroupContainer.addEventListener('click', function(e) {
@@ -192,11 +245,160 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Show/hide user menu when button is clicked
     userMenuBtn.addEventListener('click', function() {
-        userMenu.classList.toggle('hidden');
-        userMenu.classList.toggle('active');
+        // Get current active contact
+        const activeContact = document.querySelector('.contact.active');
         
-        // Close the menu when clicking outside
-        document.addEventListener('click', handleOutsideClickUserMenu);
+        // Check if it's a group chat
+        if (activeContact && activeContact.dataset.type === 'group') {
+            // It's a group - show group profile menu
+            showGroupProfileMenu();
+        } else {
+            // It's a regular contact - show normal user menu
+            userMenu.classList.toggle('hidden');
+            userMenu.classList.toggle('active');
+            
+            // Close the menu when clicking outside
+            document.addEventListener('click', handleOutsideClickUserMenu);
+        }
+    });
+    
+    // Group profile menu functionality
+    const groupProfileMenu = document.getElementById('group-profile-menu');
+    const leaveGroupBtn = document.getElementById('leave-group');
+    const addMembersBtn = document.getElementById('add-members');
+    const editGroupNameBtn = document.getElementById('edit-group-name');
+    const saveGroupNameBtn = document.getElementById('save-group-name');
+    const groupNameDisplay = document.getElementById('group-name-display');
+    const editGroupNameContainer = document.getElementById('edit-group-name-container');
+    const groupNameInput = document.getElementById('group-name-input');
+    
+    // Function to show group profile
+    function showGroupProfileMenu() {
+        // Get current group info
+        const activeGroup = document.querySelector('.contact.active');
+        const groupName = activeGroup.querySelector('.contact-info h3').textContent;
+        const groupImg = activeGroup.querySelector('.contact-avatar img').src;
+        
+        // Update group profile modal with current info
+        groupNameDisplay.textContent = groupName;
+        groupProfileMenu.querySelector('.group-profile-avatar img').src = groupImg;
+        
+        // Show the modal
+        groupProfileMenu.classList.remove('hidden');
+    }
+    
+    // Handle leaving group
+    leaveGroupBtn.addEventListener('click', function() {
+        // Get the current group info
+        const activeGroup = document.querySelector('.contact.active');
+        const groupName = activeGroup.querySelector('.contact-info h3').textContent;
+        
+        // Get current user info from the profile
+        const currentUsername = document.querySelector('.profile-info h3').textContent;
+        
+        // Close the group profile menu
+        groupProfileMenu.classList.add('hidden');
+        
+        // Add a system message showing that the user left the group
+        const messages = document.querySelector('.messages');
+        const leaveMessageElement = document.createElement('div');
+        leaveMessageElement.classList.add('system-message');
+        leaveMessageElement.innerHTML = `
+            <div class="system-message-content">
+                <p>${currentUsername} покинул(а) группу</p>
+                <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            </div>
+        `;
+        messages.appendChild(leaveMessageElement);
+        messages.scrollTop = messages.scrollHeight;
+        
+        // Mark the group as left in the contact list (visual indicator)
+        activeGroup.classList.add('left-group');
+        activeGroup.dataset.left = 'true';
+        
+        // Disable the message input for this group only
+        disableMessageInput();
+    });
+    
+    // Function to disable message input for the current chat
+    function disableMessageInput() {
+        const messageInput = document.getElementById('message-text');
+        const sendButton = document.querySelector('.send-button');
+        const mediaButton = document.getElementById('media-button');
+        const emojiButton = document.querySelector('.emoji-button');
+        
+        messageInput.disabled = true;
+        messageInput.placeholder = 'Вы больше не являетесь участником группы';
+        sendButton.disabled = true;
+        mediaButton.disabled = true;
+        emojiButton.disabled = true;
+        
+        // Apply visual styles for disabled state
+        messageInput.classList.add('disabled');
+        sendButton.classList.add('disabled');
+        mediaButton.classList.add('disabled');
+        emojiButton.classList.add('disabled');
+    }
+    
+    // Function to enable message input
+    function enableMessageInput() {
+        const messageInput = document.getElementById('message-text');
+        const sendButton = document.querySelector('.send-button');
+        const mediaButton = document.getElementById('media-button');
+        const emojiButton = document.querySelector('.emoji-button');
+        
+        messageInput.disabled = false;
+        messageInput.placeholder = 'Enter message...';
+        sendButton.disabled = false;
+        mediaButton.disabled = false;
+        emojiButton.disabled = false;
+        
+        messageInput.classList.remove('disabled');
+        sendButton.classList.remove('disabled');
+        mediaButton.classList.remove('disabled');
+        emojiButton.classList.remove('disabled');
+    }
+    
+    // Handle adding members (placeholder)
+    addMembersBtn.addEventListener('click', function() {
+        // This would show a dialog to add members in a real app
+        // For now, we'll just log a message
+        console.log('Adding members to group');
+    });
+    
+    // Handle edit group name button
+    editGroupNameBtn.addEventListener('click', function() {
+        // Hide the display and show edit input
+        const currentName = groupNameDisplay.textContent;
+        groupNameInput.value = currentName;
+        editGroupNameContainer.classList.remove('hidden');
+    });
+    
+    // Handle save group name button
+    saveGroupNameBtn.addEventListener('click', function() {
+        const newName = groupNameInput.value.trim();
+        
+        if (newName) {
+            // Update displayed name
+            groupNameDisplay.textContent = newName;
+            
+            // Update group in contacts list
+            const activeGroup = document.querySelector('.contact.active');
+            activeGroup.querySelector('.contact-info h3').textContent = newName;
+            
+            // Update chat header
+            document.querySelector('.current-contact .contact-info h3').textContent = newName;
+            
+            // Hide edit container
+            editGroupNameContainer.classList.add('hidden');
+        }
+    });
+    
+    // Close group profile when clicking outside
+    groupProfileMenu.addEventListener('click', function(e) {
+        if (e.target === groupProfileMenu) {
+            groupProfileMenu.classList.add('hidden');
+        }
     });
     
     // Handle clicks outside of the user menu
@@ -273,6 +475,15 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelector('.current-contact .contact-info h3').textContent = contactName;
             document.querySelector('.current-contact .contact-info p').textContent = isOnline ? 'Online': 'Offline';
             document.querySelector('.current-contact .contact-avatar img').src = contactImg;
+
+            // Check if this is a group chat and if the user has left it
+            if (this.dataset.type === 'group' && this.dataset.left === 'true') {
+                // This is a group the user has left, disable message input
+                disableMessageInput();
+            } else {
+                // This is a regular contact or an active group, enable message input
+                enableMessageInput();
+            }
 
             loadChatHistory(contactName);
         })
@@ -748,6 +959,217 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Focus back on input
         messageText.focus();
+    }
+
+    // Handle adding members
+    addMembersBtn.addEventListener('click', function() {
+        // Close the group profile menu
+        groupProfileMenu.classList.add('hidden');
+        
+        // Show the add members popup
+        showAddMembersPopup();
+    });
+    
+    // Add Members Popup functionality
+    const addMembersPopup = document.getElementById('add-members-popup');
+    const closeAddMembersBtn = document.getElementById('close-add-members');
+    const cancelAddMembersBtn = document.getElementById('cancel-add-members');
+    const confirmAddMembersBtn = document.getElementById('confirm-add-members');
+    const searchMembersInput = document.getElementById('search-members');
+    const contactsSelectionList = document.getElementById('contacts-selection-list');
+    
+    // Function to show add members popup
+    function showAddMembersPopup() {
+        // Get all contacts to populate the list
+        populateContactsSelectionList();
+        
+        // Show the popup
+        addMembersPopup.classList.remove('hidden');
+        
+        // Focus on search input
+        searchMembersInput.focus();
+    }
+    
+    // Function to populate the contacts selection list
+    function populateContactsSelectionList() {
+        // Clear existing list
+        contactsSelectionList.innerHTML = '';
+        
+        // Get all contacts from the contacts list
+        const allContacts = document.querySelectorAll('.contact:not([data-type="group"])');
+        
+        // Get current active group
+        const activeGroup = document.querySelector('.contact.active[data-type="group"]');
+        
+        // Get list of existing members' names from the group
+        const groupMembersList = document.getElementById('group-members-list');
+        const existingMembers = Array.from(groupMembersList.querySelectorAll('.group-member')).map(
+            member => member.querySelector('.member-info h4').textContent
+        );
+        
+        // For each contact, create a selection item if they're not already in the group
+        allContacts.forEach(contact => {
+            const contactName = contact.querySelector('.contact-info h3').textContent;
+            
+            // Skip if this contact is already in the group
+            if (existingMembers.includes(contactName)) {
+                return;
+            }
+            
+            const contactImg = contact.querySelector('.contact-avatar img').src;
+            const isOnline = contact.querySelector('.contact-status.online') !== null;
+            
+            const selectionItem = document.createElement('div');
+            selectionItem.className = 'contact-selection-item';
+            selectionItem.innerHTML = `
+                <input type="checkbox" class="contact-checkbox" data-name="${contactName}">
+                <div class="contact-selection-avatar">
+                    <img src="${contactImg}" alt="${contactName}">
+                </div>
+                <div class="contact-selection-info">
+                    <h4>${contactName}</h4>
+                    <p>${isOnline ? 'Online' : 'Offline'}</p>
+                </div>
+            `;
+            
+            contactsSelectionList.appendChild(selectionItem);
+        });
+        
+        // Show message if no contacts are available to add
+        if (contactsSelectionList.children.length === 0) {
+            const noContactsMessage = document.createElement('div');
+            noContactsMessage.className = 'no-contacts-message';
+            noContactsMessage.innerHTML = 'Все контакты уже добавлены в группу';
+            contactsSelectionList.appendChild(noContactsMessage);
+        }
+    }
+    
+    // Function to handle search in contacts list
+    searchMembersInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        
+        // Filter contacts based on search term
+        const contactItems = contactsSelectionList.querySelectorAll('.contact-selection-item');
+        
+        contactItems.forEach(item => {
+            const contactName = item.querySelector('.contact-selection-info h4').textContent.toLowerCase();
+            
+            if (contactName.includes(searchTerm)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+    
+    // Close add members popup
+    closeAddMembersBtn.addEventListener('click', function() {
+        addMembersPopup.classList.add('hidden');
+    });
+    
+    // Cancel adding members
+    cancelAddMembersBtn.addEventListener('click', function() {
+        addMembersPopup.classList.add('hidden');
+    });
+    
+    // Confirm adding selected members
+    confirmAddMembersBtn.addEventListener('click', function() {
+        // Get all selected contacts
+        const selectedCheckboxes = contactsSelectionList.querySelectorAll('.contact-checkbox:checked');
+        const selectedNames = Array.from(selectedCheckboxes).map(checkbox => checkbox.dataset.name);
+        
+        // If at least one contact is selected
+        if (selectedNames.length > 0) {
+            // Get current group
+            const activeGroup = document.querySelector('.contact.active[data-type="group"]');
+            const groupName = activeGroup.querySelector('.contact-info h3').textContent;
+            
+            // Get members list
+            const groupMembersList = document.getElementById('group-members-list');
+            
+            // Add selected contacts to group members
+            let contactsAdded = false;
+            
+            selectedNames.forEach(name => {
+                // Check if member already exists in the group
+                const existingMember = groupMembersList.querySelector(`.group-member[data-name="${name}"]`);
+                if (!existingMember) {
+                    contactsAdded = true;
+                    
+                    // Find contact in contacts list to get image
+                    let contactImg = '/static/images/avatar.png';
+                    document.querySelectorAll('.contact').forEach(contact => {
+                        const contactName = contact.querySelector('.contact-info h3').textContent;
+                        if (contactName === name) {
+                            contactImg = contact.querySelector('.contact-avatar img').src;
+                        }
+                    });
+                    
+                    // Create new member element
+                    const memberElement = document.createElement('div');
+                    memberElement.className = 'group-member';
+                    memberElement.dataset.name = name;
+                    memberElement.innerHTML = `
+                        <div class="member-avatar">
+                            <img src="${contactImg}" alt="${name}">
+                        </div>
+                        <div class="member-info">
+                            <h4>${name}</h4>
+                            <p>Участник</p>
+                        </div>
+                    `;
+                    
+                    // Add to members list
+                    groupMembersList.appendChild(memberElement);
+                    
+                    // Add system message in chat
+                    addSystemMessage(`${name} добавлен(а) в группу`);
+                }
+            });
+            
+            // If group was previously left, reactivate it when adding new members
+            if (activeGroup.classList.contains('left-group') && contactsAdded) {
+                // Remove left-group styling
+                activeGroup.classList.remove('left-group');
+                delete activeGroup.dataset.left;
+                
+                // Re-enable message input
+                const messageInput = document.getElementById('message-text');
+                const sendButton = document.querySelector('.send-button');
+                const mediaButton = document.getElementById('media-button');
+                
+                messageInput.disabled = false;
+                messageInput.placeholder = "Enter message...";
+                sendButton.disabled = false;
+                mediaButton.disabled = false;
+                
+                messageInput.classList.remove('disabled');
+                sendButton.classList.remove('disabled');
+                mediaButton.classList.remove('disabled');
+                
+                // Add system message that you rejoined the group
+                const currentUsername = document.querySelector('.profile-info h3').textContent;
+                addSystemMessage(`${currentUsername} вернулся(ась) в группу`);
+            }
+            
+            // Close popup
+            addMembersPopup.classList.add('hidden');
+        }
+    });
+    
+    // Function to add system message to chat
+    function addSystemMessage(message) {
+        const messages = document.querySelector('.messages');
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('system-message');
+        messageElement.innerHTML = `
+            <div class="system-message-content">
+                <p>${message}</p>
+                <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            </div>
+        `;
+        messages.appendChild(messageElement);
+        messages.scrollTop = messages.scrollHeight;
     }
 });
 

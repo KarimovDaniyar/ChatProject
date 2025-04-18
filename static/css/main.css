@@ -633,6 +633,20 @@ body {
     color: rgba(34, 61, 85, 0.95);
 }
 
+#new-group-name {
+    background-color: transparent;
+    border: none;
+    outline: none;
+    color: rgba(34, 61, 85, 0.95);
+    font-size: 16px;
+    width: 100%;
+    padding: 12px 5px;
+}
+
+#new-group-name::placeholder {
+    color: rgba(34, 61, 85, 0.95);
+}
+
 .form-buttons {
     display: flex;
     justify-content: space-between;
@@ -677,7 +691,7 @@ body {
 
 .user-menu {
     position: absolute;
-    top: 67px;
+    top: 65px;
     right: 5px;
     width: 200px;
     background-color: rgba(24, 47, 67, 1);
@@ -1070,4 +1084,281 @@ body {
         width: calc(100% - 80px); /* Адаптация для мобильных устройств */
         margin-left: 80px;
     }
+}
+
+/* Group Profile Menu Styles */
+.group-profile-modal {
+    height: auto;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.group-profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(34, 61, 85, 0.3);
+}
+
+.group-profile-avatar {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.group-profile-avatar img {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(34, 61, 85, 0.95);
+}
+
+.group-name-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.group-name-container h3 {
+    font-size: 24px;
+    color: rgba(34, 61, 85, 0.95);
+    margin-right: 10px;
+}
+
+.edit-name-btn {
+    background: transparent;
+    border: none;
+    color: rgba(34, 61, 85, 0.95);
+    cursor: pointer;
+    font-size: 20px;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.edit-name-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0 20px;
+}
+
+.edit-name-container.hidden {
+    display: none;
+}
+
+#group-name-input {
+    padding: 8px 15px;
+    border: 1px solid rgba(34, 61, 85, 0.95);
+    border-radius: 5px;
+    margin-right: 10px;
+    font-size: 16px;
+    width: 80%;
+    background-color: transparent;
+    color: rgba(34, 61, 85, 0.95);
+}
+
+.save-name-btn {
+    background-color: rgba(34, 61, 85, 0.95);
+    border: none;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.group-members-container {
+    margin-top: 10px;
+    border-top: 1px solid rgba(34, 61, 85, 0.3);
+    padding-top: 15px;
+}
+
+.group-members-container h3 {
+    font-size: 18px;
+    color: rgba(34, 61, 85, 0.95);
+    margin-bottom: 15px;
+}
+
+.group-members-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.group-member {
+    display: flex;
+    align-items: center;
+    padding: 10px 5px;
+    border-bottom: 1px solid rgba(34, 61, 85, 0.1);
+}
+
+.member-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 15px;
+}
+
+.member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.member-info {
+    flex: 1;
+}
+
+.member-info h4 {
+    font-size: 16px;
+    color: rgba(34, 61, 85, 0.95);
+    margin-bottom: 3px;
+}
+
+.member-info p {
+    font-size: 12px;
+    color: rgba(34, 61, 85, 0.7);
+}
+
+/* System message styles */
+.system-message {
+    display: flex;
+    justify-content: center;
+    margin: 10px 0;
+    width: 100%;
+}
+
+.system-message-content {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    padding: 8px 15px;
+    text-align: center;
+}
+
+.system-message-content p {
+    color: #ffffff;
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Left group styles */
+.contact.left-group {
+    opacity: 0.7;
+}
+
+/* Disabled input styles */
+.chat-input.disabled, 
+.send-button.disabled, 
+.media-button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Add Members Popup Styles */
+.add-members-modal {
+    height: auto;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.add-members-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(34, 61, 85, 0.3);
+}
+
+.add-members-search {
+    margin: 15px 0;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 12px 10px 35px;
+    border: 1px solid rgba(34, 61, 85, 0.3);
+    border-radius: 20px;
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 0.8);
+    color: rgba(34, 61, 85, 0.95);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: rgba(34, 61, 85, 0.7);
+    background-color: rgba(255, 255, 255, 1);
+}
+
+.contacts-selection-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+    border-top: 1px solid rgba(34, 61, 85, 0.1);
+    border-bottom: 1px solid rgba(34, 61, 85, 0.1);
+    padding: 10px 0;
+}
+
+.contact-selection-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 5px;
+    border-bottom: 1px solid rgba(34, 61, 85, 0.05);
+    transition: background-color 0.2s;
+}
+
+.contact-selection-item:last-child {
+    border-bottom: none;
+}
+
+.contact-selection-item:hover {
+    background-color: rgba(34, 61, 85, 0.05);
+}
+
+.contact-checkbox {
+    margin-right: 15px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.contact-selection-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 15px;
+}
+
+.contact-selection-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.contact-selection-info {
+    flex: 1;
+}
+
+.contact-selection-info h4 {
+    font-size: 16px;
+    color: rgba(34, 61, 85, 0.95);
+    margin-bottom: 2px;
+}
+
+.contact-selection-info p {
+    font-size: 12px;
+    color: rgba(34, 61, 85, 0.6);
+    margin: 0;
 }
