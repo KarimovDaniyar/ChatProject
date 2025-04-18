@@ -6,23 +6,23 @@
   </head>
   <body>
     <div class="LogRegBox">
-      <form id="login-form">
+      <form id="login-form" autocomplete="off">
         <h2>Login</h2>
         <div class="input-box">
           <span class="icon"><ion-icon name="mail"></ion-icon></span>
-          <input type="text" id="username" placeholder="" required />
+          <input type="text" id="username" placeholder="" required autocomplete="off" />
           <label>Username</label>
         </div>
         <div class="input-box">
           <span class="icon"><ion-icon name="lock-closed"></ion-icon></span>
-          <input type="password" id="password" placeholder="" required />
+          <input type="password" id="password" placeholder="" required autocomplete="off" />
           <label>Password</label>
         </div>
-        <a>Forgot</a>
+        <a style="color: white">Forgot password?</a>
         <div>
-          <button type="submit">Login</button>
-          <div class="register-link" style="margin-top: 10px;">
-            <p style="color: white;">Don't have an account? <a style="padding-left: 30px;" class="link" href="/register">Register</a></p>
+          <button style="margin-top: 7px" type="submit">Login</button>
+          <div class="register-link" style="margin-top: 15px;">
+            <p style="color: white;">Don't have an account? <a style="padding-left: 10px;" class="link" href="/register">Register</a></p>
           </div>
         </div>
       </form>
