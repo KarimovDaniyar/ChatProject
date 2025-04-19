@@ -65,16 +65,38 @@ document.addEventListener('DOMContentLoaded', function() {
     function getCurrentUserId() {
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload.sub;
+            return {
+                username: payload.sub,
+                email: payload.email || ''
+            }
         } catch (error) {
             console.error("Error decoding token:", error);
-            return null;
+            return {username: null, email: null };
         }
     }
 
-    const currentUsername = getCurrentUserId();
-    if (currentUsername) {
-        document.querySelector('.profile-info h3').textContent = currentUsername;
+    async function loadUserProfile() {
+        try {
+            const response = await fetch("/user/profile", {
+                headers: { 
+                    "Authorization": `Bearer ${token}` 
+                }
+            });
+            
+            if (response.ok) {
+                const userData = await response.json();
+                document.querySelector('.profile-info h3').textContent = userData.username;
+                document.querySelector('.profile-info p').textContent = userData.email || '';
+                
+                // If you have profile editing functionality, also update those fields
+                if (editUsernameInput) editUsernameInput.value = userData.username;
+                if (editEmailInput) editEmailInput.value = userData.email || '';
+            } else {
+                console.error("Failed to load user profile:", response.status);
+            }
+        } catch (error) {
+            console.error("Error loading user profile:", error);
+        }
     }
 
     async function loadContacts() {
@@ -869,5 +891,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     }
 
+    loadUserProfile();
     loadContacts();
 });

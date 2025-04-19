@@ -173,17 +173,14 @@ async def serve_register():
 
 @app.post("/register")
 async def register(user: UserCreate):
-    print(f"Received registration data: username={user.username}, email={user.email}")
     # Проверяем, существует ли пользователь с таким именем
     existing_user = get_user_by_username(user.username)
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
-
-    # Генерируем временный токен и код верификации
+    
     temp_token = str(uuid.uuid4())
     verification_code = str(random.randint(100000, 999999))
     
-    # Сохраняем данные пользователя и код во временном хранилище
     temp_users[temp_token] = {
         "username": user.username,
         "password": user.password,
@@ -219,7 +216,7 @@ async def verify_email(verification: EmailVerification):
         raise HTTPException(status_code=400, detail="User data not found")
     
     # Создаем пользователя в базе данных
-    new_user = create_user(user_data["username"], user_data["password"])
+    new_user = create_user(user_data["username"], user_data["password"], user_data["email"])
     if not new_user:
         raise HTTPException(status_code=400, detail="Failed to create user")
     
@@ -373,3 +370,12 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
         print(f"Error in WebSocket for user {user.get('username', 'unknown')}: {e}")
         manager.disconnect(websocket, chat_id, user)
         # Можно добавить broadcast об ошибке, если нужно
+
+@app.get("/user/profile")
+async def get_user_profile(user: dict = Depends(get_current_user)):
+    # The user object already comes from the database via get_current_user
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "email": user["email"] or ""  # Provide empty string if email is None
+    }
