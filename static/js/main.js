@@ -102,7 +102,6 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadContacts() {
         try {
             console.log("Loading contacts...");
-            // Изменяем запрос на получение контактов вместо всех пользователей
             const response = await fetch("/contacts", {
                 headers: { "Authorization": `Bearer ${token}` }
             });
@@ -119,7 +118,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Loaded contacts:", contacts);
             contactsList.innerHTML = "";
             
-            // Если у пользователя нет контактов, показываем сообщение
             if (contacts.length === 0) {
                 const emptyMessage = document.createElement('div');
                 emptyMessage.classList.add('empty-contacts');
@@ -132,8 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 contactsList.appendChild(emptyMessage);
                 return;
             }
-
-            // Отображаем контакты из полученного списка
+    
             contacts.forEach(contact => {
                 const contactElement = document.createElement('div');
                 contactElement.classList.add('contact');
@@ -151,10 +148,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
                 contactsList.appendChild(contactElement);
             });
-
+    
             const contactElements = document.querySelectorAll('.contact');
             contactElements.forEach(contact => {
-                contact.addEventListener('click', function() {
+                contact.addEventListener('click', async function() {
                     contactElements.forEach(c => c.classList.remove('active'));
                     this.classList.add('active');
                     
@@ -163,31 +160,114 @@ document.addEventListener('DOMContentLoaded', function() {
                     const isOnline = this.querySelector('.contact-status.online') !== null;
                     const contactId = this.getAttribute('data-id');
                     
-                    // Сохраняем текущий выбранный контакт
                     currentContactUsername = contactName;
                     
-                    // Устанавливаем chatId на основе имени пользователя
-                    // Используем простой хеш, чтобы получить уникальный ID
-                    currentChatId = hashString(currentUsername + '_' + contactName);
-                    
-                    // Обновляем заголовок чата
-                    document.querySelector('.current-contact .contact-info h3').textContent = contactName;
-                    document.querySelector('.current-contact .contact-info p').textContent = isOnline ? 'Online' : 'Offline';
-                    document.querySelector('.current-contact .contact-avatar img').src = contactImg;
-                    
-                    // Переподключаемся к WebSocket с новым chatId
-                    reconnectWebSocket();
-                    
-                    // Загружаем сообщения для данного чата
-                    loadMessages();
+                    // Fetch chat_id from backend
+                    try {
+                        const response = await fetch(`/chat/one-on-one/${contactId}`, {
+                            headers: { "Authorization": `Bearer ${token}` }
+                        });
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(`Failed to get chat: ${errorData.detail || response.statusText}`);
+                        }
+                        const data = await response.json();
+                        currentChatId = data.chat_id;
+                        
+                        // Update chat header
+                        document.querySelector('.current-contact .contact-info h3').textContent = contactName;
+                        document.querySelector('.current-contact .contact-info p').textContent = isOnline ? 'Online' : 'Offline';
+                        document.querySelector('.current-contact .contact-avatar img').src = contactImg;
+                        
+                        // Reconnect WebSocket
+                        reconnectWebSocket();
+                        
+                        // Load messages
+                        loadMessages();
+                    } catch (error) {
+                        console.error("Error fetching chat ID:", error);
+                        showNotification(`Не удалось открыть чат: ${error.message}`);
+                        currentChatId = null; // Ensure no invalid WebSocket connection
+                    }
                 });
             });
-
+    
             if (contacts.length > 0) {
                 contacts[0].click();
             }
         } catch (error) {
             console.error("Error loading contacts:", error);
+        }
+    }
+    
+    // Update reconnectWebSocket to use currentChatId
+    function reconnectWebSocket() {
+        if (!currentChatId) {
+            console.log("No chat ID available, skipping WebSocket connection");
+            return;
+        }
+        
+        if (ws) {
+            ws.close();
+        }
+        
+        ws = new WebSocket(`ws://${window.location.host}/ws/${currentChatId}?token=${token}`);
+        
+        ws.onopen = () => {
+            console.log("WebSocket connection established for chat:", currentChatId);
+        };
+        
+        ws.onmessage = (event) => {
+            console.log("Received WebSocket message:", event.data);
+            const message = JSON.parse(event.data);
+            
+            const isOutgoing = message.username === getCurrentUserId().username;
+            const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
+            displayMessage(
+                messageId,
+                message.content,
+                message.username,
+                isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
+                isOutgoing,
+                message.timestamp || new Date().toISOString(),
+                message.type || "message"
+            );
+            const contactElement = document.querySelector(`.contact[data-username="${message.username}"]`);
+            if (contactElement) {
+                const statusElement = contactElement.querySelector('.contact-status');
+                statusElement.classList.remove('offline');
+                statusElement.classList.add('online');
+                contactElement.querySelector('.contact-info p').textContent = 'Online';
+            }
+        };
+        
+        ws.onclose = (event) => {
+            console.log("WebSocket connection closed:", event);
+            // Optionally attempt to reconnect after a delay
+            setTimeout(() => {
+                if (currentChatId) {
+                    console.log("Attempting to reconnect WebSocket...");
+                    reconnectWebSocket();
+                }
+            }, 5000); // Reconnect after 5 seconds
+        };
+        
+        ws.onerror = (error) => {
+            console.error("WebSocket error:", error);
+        };
+    }
+    
+    // Update getCurrentUserId to handle username correctly
+    function getCurrentUserId() {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return {
+                username: payload.sub,
+                email: payload.email || ''
+            };
+        } catch (error) {
+            console.error("Error decoding token:", error);
+            return { username: null, email: null };
         }
     }
 
