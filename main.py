@@ -1,16 +1,18 @@
 import os
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import sqlite3
+import shutil
+import uuid
 # Обновляем импорты из database
 from database import (
     init_db, create_user, get_user_by_username, verify_password,
     create_message, get_messages, get_or_create_chat, get_all_users,
-    add_contact, get_contacts, search_users # Добавлены новые импорты
+    add_contact, get_contacts,search_users
 )
 from security import create_access_token, decode_access_token
 from datetime import datetime
@@ -217,6 +219,30 @@ async def list_messages(chat_id: int, user: dict = Depends(get_current_user)):
     chat_id = get_or_create_chat(chat_id)
     messages = get_messages(chat_id)
     return messages
+
+@app.post("/upload-media/{chat_id}")
+async def upload_media(chat_id: int, files: List[UploadFile] = File(...), user: dict = Depends(get_current_user)):
+    uploaded_files = []
+    
+    # Создаем папку для медиафайлов, если она не существует
+    media_dir = os.path.join(BASE_DIR, "static", "media")
+    if not os.path.exists(media_dir):
+        os.makedirs(media_dir)
+    
+    for file in files:
+        # Генерируем уникальное имя файла
+        file_ext = file.filename.split('.')[-1]
+        unique_filename = f"{uuid.uuid4()}.{file_ext}"
+        
+        # Сохраняем файл
+        file_path = os.path.join(media_dir, unique_filename)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        uploaded_files.append(unique_filename)
+    
+    return {"files": uploaded_files}
 
 @app.websocket("/ws/{chat_id}")
 async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = Depends(get_current_user_ws)):
