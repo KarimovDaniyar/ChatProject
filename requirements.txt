@@ -1,6 +1,29 @@
-fastapi
-uvicorn
-python-jose
-passlib[bcrypt]
-pyjwt
-python-multipart
+# Основные зависимости
+fastapi==0.109.2
+uvicorn==0.27.1
+pydantic==1.10.12  # Изменено на последнюю стабильную 1.x версию
+email-validator==2.1.0
+
+# Для аутентификации и безопасности
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+
+# Для обработки HTTP-запросов
+httpx==0.27.0
+
+# Для работы с WebSockets
+websockets==12.0
+
+# Для работы с базой данных
+# sqlite3 # встроенная библиотека Python
+
+# Для формирования JWT-токенов
+pyjwt==2.8.0
+
+# В конец файла
+# Для работы с переменными окружения 
+python-dotenv==1.0.1
+
+#  Вы можете установить все эти зависимости одной командой:
+#  pip install -r requirements.txt

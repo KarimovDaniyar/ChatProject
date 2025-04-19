@@ -12,7 +12,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            email TEXT UNIQUE
         )
     ''')
     cursor.execute('''
@@ -49,15 +50,16 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def create_user(username, password):
+def create_user(username, password, email=None):
     conn = get_db()
     hashed_password = pwd_context.hash(password)
     try:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
+        cursor.execute("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", 
+                      (username, hashed_password, email))
         conn.commit()
         user_id = cursor.lastrowid
-        return {"id": user_id, "username": username}
+        return {"id": user_id, "username": username, "email": email}
     except sqlite3.IntegrityError:
         return None
     finally:
