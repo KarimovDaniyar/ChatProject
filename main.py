@@ -1,290 +1,151 @@
-import os
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form
-from fastapi.security import OAuth2PasswordBearer
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from typing import List, Dict, Optional
-import sqlite3
-import shutil
-import uuid
-# Обновляем импорты из database
-from database import (
-    init_db, create_user, get_user_by_username, verify_password,
-    create_message, get_messages, get_or_create_chat, get_all_users,
-    add_contact, get_contacts,search_users
-)
-from security import create_access_token, decode_access_token
-from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from random import randint
 
-app = FastAPI()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-# Корневая директория проекта
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Монтируем статические файлы
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-
-# Инициализация базы данных
-init_db()
-
-# Хранилище для WebSocket-соединений и активных пользователей
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: Dict[int, List[Dict]] = {}
-        self.active_users: Dict[int, List[Dict]] = {}
-
-    async def connect(self, websocket: WebSocket, chat_id: int, user: dict):
-        await websocket.accept()
-        if (chat_id not in self.active_connections):
-            self.active_connections[chat_id] = []
-            self.active_users[chat_id] = []
-        if not any(u["id"] == user["id"] for u in self.active_users[chat_id]):
-            self.active_users[chat_id].append({"id": user["id"], "username": user["username"]})
-        self.active_connections[chat_id].append({"websocket": websocket, "user": user})
-        await self.broadcast_users(chat_id)
-
-    def disconnect(self, websocket: WebSocket, chat_id: int, user: dict):
-        for conn in self.active_connections[chat_id]:
-            if conn["websocket"] == websocket:
-                self.active_connections[chat_id].remove(conn)
-                break
-        self.active_users[chat_id] = [u for u in self.active_users[chat_id] if u["id"] != user["id"]]
-        if not self.active_connections[chat_id]:
-            del self.active_connections[chat_id]
-            del self.active_users[chat_id]
-        else:
-            self.broadcast_users(chat_id)
-
-    async def broadcast(self, message: dict, chat_id: int):
-        if chat_id in self.active_connections:
-            for connection in self.active_connections[chat_id]:
-                await connection["websocket"].send_json(message)
-
-    async def broadcast_users(self, chat_id: int):
-        if chat_id in self.active_connections:
-            user_list = self.active_users[chat_id]
-            await self.broadcast({"type": "user_list", "users": user_list}, chat_id)
-
-manager = ConnectionManager()
-
-# Модели для входа и регистрации
-class UserCreate(BaseModel):
-    username: str
-    password: str
-
-class UserLogin(BaseModel):
-    username: str
-    password: str
-
-# Модель для сообщения
-class MessageCreate(BaseModel):
-    chat_id: int
-    content: str
-
-# Модель для добавления контактов
-class ContactsAdd(BaseModel):
-    contact_ids: List[int]
-
-# Получение текущего пользователя из токена (для заголовков)
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    username = payload.get("sub")
-    user = get_user_by_username(username)
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
-
-# Получение текущего пользователя из параметра token (для маршрута /chat)
-async def get_current_user_from_query(token: Optional[str] = Query(None)):
-    if not token:
-        raise HTTPException(status_code=401, detail="Token missing")
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    username = payload.get("sub")
-    user = get_user_by_username(username)
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
-
-# Проверка токена для WebSocket
-async def get_current_user_ws(websocket: WebSocket):
-    token = websocket.query_params.get("token")
-    if not token:
-        await websocket.close(code=1008, reason="Missing token")
-        raise WebSocketDisconnect("Missing token")
-    payload = decode_access_token(token)
-    if not payload:
-        await websocket.close(code=1008, reason="Invalid token")
-        raise WebSocketDisconnect("Invalid token")
-    username = payload.get("sub")
-    user = get_user_by_username(username)
-    if not user:
-        await websocket.close(code=1008, reason="User not found")
-        raise WebSocketDisconnect("User not found")
-    return user
-
-# Маршруты
-@app.get("/", response_class=HTMLResponse)
-async def serve_login():
-    file_path = os.path.join(BASE_DIR, "templates", "login.html")
-    with open(file_path, encoding="utf-8") as f:
-        return f.read()
-
-@app.get("/chat", response_class=HTMLResponse)
-async def serve_chat(token: Optional[str] = Query(None)):
-    try:
-        current_user = await get_current_user_from_query(token)
-        file_path = os.path.join(BASE_DIR, "templates", "main.html")
-        with open(file_path, encoding="utf-8") as f:
-            return f.read()
-    except HTTPException as e:
-        if e.status_code == 401:
-            return RedirectResponse(url="/")
-        raise e
-
-@app.get("/register", response_class=HTMLResponse)
-async def serve_register():
-    file_path = os.path.join(BASE_DIR, "templates", "register.html")
-    with open(file_path, encoding="utf-8") as f:
-        return f.read()
-
-@app.post("/register")
-async def register(user: UserCreate):
-    new_user = create_user(user.username, user.password)
-    if not new_user:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    access_token = create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@app.post("/login")
-async def login(user: UserLogin):
-    db_user = get_user_by_username(user.username)
-    if not db_user or not verify_password(user.password, db_user["password"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@app.get("/logout")
-async def logout():
-    return RedirectResponse(url="/")
-
-@app.get("/users")
-async def list_users(user: dict = Depends(get_current_user)):
-    users = get_all_users()
-    return users
-
-# Новый эндпоинт для получения контактов текущего пользователя
-@app.get("/contacts")
-async def read_contacts(user: dict = Depends(get_current_user)):
-    contacts = get_contacts(user["id"])
-    return contacts
-
-# Новый эндпоинт для добавления контактов
-@app.post("/contacts/add")
-async def add_contacts_route(contacts_to_add: ContactsAdd, user: dict = Depends(get_current_user)):
-    current_user_id = user["id"]
-    added_count = 0
-    for contact_id in contacts_to_add.contact_ids:
-        if contact_id != current_user_id: # Нельзя добавить себя
-            if add_contact(current_user_id, contact_id):
-                added_count += 1
-    if added_count > 0:
-         # Return the updated list of contacts
-         updated_contacts = get_contacts(current_user_id)
-         return {"status": f"{added_count} contacts added successfully.", "contacts": updated_contacts}
+async def send_email(message, recipient_email=None, code=None):
+    sender = "karimovdaniar224@gmail.com"
+    password = "wqft oybx grqv skqd"
+    recipient = recipient_email if recipient_email else "mamatjanovalymbek@gmail.com"
+    
+    # Создаем объект MIMEMultipart
+    msg = MIMEMultipart('alternative')
+    msg["Subject"] = "YuChat - Email Verification"
+    msg["From"] = sender
+    msg["To"] = recipient
+    
+    # Если передан код, используем его, иначе используем сообщение как есть
+    if code:
+        # Текстовая версия для клиентов без поддержки HTML
+        text_content = f"Ваш код подтверждения: {code}\nВведите его на сайте для завершения регистрации."
+        
+        # HTML версия письма
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Email Verification</title>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+                
+                body {{
+                    font-family: 'Poppins', Arial, sans-serif;
+                    margin: 0;
+                    padding: 0;
+                    background-color: #f4f4f4;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 20px auto;
+                    background-color: #ffffff;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+                }}
+                .header {{
+                    background-color: rgba(34, 61, 85, 0.95);
+                    padding: 30px;
+                    text-align: center;
+                    color: white;
+                }}
+                .header h1 {{
+                    margin: 0;
+                    font-size: 28px;
+                }}
+                .content {{
+                    padding: 30px;
+                    text-align: center;
+                }}
+                .verification-code {{
+                    font-size: 32px;
+                    font-weight: 600;
+                    letter-spacing: 5px;
+                    margin: 30px 0;
+                    color: #333;
+                    background-color: #f0f0f0;
+                    padding: 15px;
+                    border-radius: 8px;
+                    display: inline-block;
+                }}
+                .message {{
+                    font-size: 16px;
+                    color: #555;
+                    line-height: 1.5;
+                    margin-bottom: 30px;
+                }}
+                .footer {{
+                    background-color: #f0f0f0;
+                    padding: 20px;
+                    text-align: center;
+                    color: #777;
+                    font-size: 12px;
+                }}
+                .button {{
+                    background-color: rgba(34, 61, 85, 0.95);
+                    color: white;
+                    padding: 12px 30px;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    font-weight: 500;
+                    display: inline-block;
+                    margin-top: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>YuChat</h1>
+                </div>
+                <div class="content">
+                    <p class="message">Здравствуйте! Спасибо за регистрацию в YuChat. Для завершения регистрации, пожалуйста, введите указанный ниже код подтверждения на странице верификации.</p>
+                    
+                    <div class="verification-code">{code}</div>
+                    
+                    <p class="message">Если вы не регистрировались на нашем сайте, пожалуйста, проигнорируйте это сообщение.</p>
+                </div>
+                <div class="footer">
+                    <p>© {2023} YuChat. Все права защищены.</p>
+                    <p>Это автоматическое сообщение, пожалуйста, не отвечайте на него.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Прикрепляем текстовую и HTML версии письма
+        part1 = MIMEText(text_content, 'plain')
+        part2 = MIMEText(html_content, 'html')
+        
+        msg.attach(part1)
+        msg.attach(part2)
     else:
-         # Handle cases where no contacts were added (e.g., all IDs were self or already contacts)
-         # Check if the list was empty or contained only self
-         if not contacts_to_add.contact_ids or all(cid == current_user_id for cid in contacts_to_add.contact_ids):
-              raise HTTPException(status_code=400, detail="No valid contact IDs provided.")
-         else:
-              # Assume they might already be contacts or another issue occurred
-              raise HTTPException(status_code=400, detail="Could not add contacts. They might already exist or IDs are invalid.")
-
-# Новый эндпоинт для поиска пользователей
-@app.get("/users/search")
-async def search_users_route(query: str = Query(..., min_length=1), user: dict = Depends(get_current_user)):
-    if not query:
-        return []
-    found_users = search_users(query, user["id"])
-    return found_users
-
-@app.get("/messages/{chat_id}")
-async def list_messages(chat_id: int, user: dict = Depends(get_current_user)):
-    chat_id = get_or_create_chat(chat_id)
-    messages = get_messages(chat_id)
-    return messages
-
-@app.post("/upload-media/{chat_id}")
-async def upload_media(chat_id: int, files: List[UploadFile] = File(...), user: dict = Depends(get_current_user)):
-    uploaded_files = []
+        # Если код не передан, просто отправляем текстовое сообщение
+        msg.attach(MIMEText(message, 'plain'))
     
-    # Создаем папку для медиафайлов, если она не существует
-    media_dir = os.path.join(BASE_DIR, "static", "media")
-    if not os.path.exists(media_dir):
-        os.makedirs(media_dir)
-    
-    for file in files:
-        # Генерируем уникальное имя файла
-        file_ext = file.filename.split('.')[-1]
-        unique_filename = f"{uuid.uuid4()}.{file_ext}"
-        
-        # Сохраняем файл
-        file_path = os.path.join(media_dir, unique_filename)
-        
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        uploaded_files.append(unique_filename)
-    
-    return {"files": uploaded_files}
-
-@app.websocket("/ws/{chat_id}")
-async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = Depends(get_current_user_ws)):
-    chat_id = get_or_create_chat(chat_id)
-    await manager.connect(websocket, chat_id, user)
-    # Системное сообщение о подключении
-    await manager.broadcast({
-        "user_id": user["id"],
-        "username": user["username"],
-        "content": f"{user['username']} joined the chat",
-        "type": "system"
-    }, chat_id)
+    server = None
     try:
-        while True:
-            data = await websocket.receive_json()
-            content = data.get("content")
-            if content:
-                # Сохраняем сообщение в БД
-                message_id = create_message(chat_id, user["id"], content)
-                # Готовим сообщение для рассылки
-                message_to_broadcast = {
-                    "id": message_id, # Добавляем ID сообщения
-                    "user_id": user["id"],
-                    "username": user["username"],
-                    "content": content,
-                    "type": "message",
-                    "timestamp": datetime.utcnow().isoformat() + "Z" # Добавляем временную метку
-                }
-                await manager.broadcast(message_to_broadcast, chat_id)
-            else:
-                print(f"Received empty message or invalid format from {user['username']}: {data}")
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(sender, password)
+        server.sendmail(sender, recipient, msg.as_string())
+        return "The message was sent successfully!"
+    except Exception as _ex:
+        return f"{_ex}\nCheck your login or password pls"
+    finally:
+        # Закрываем соединение только если оно было успешно установлено
+        if server is not None:
+            try:
+                server.quit()
+            except:
+                pass  # Игнорируем ошибку при закрытии соединения
 
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, chat_id, user)
-        # Системное сообщение об отключении
-        await manager.broadcast({
-            "user_id": user["id"],
-            "username": user["username"],
-            "content": f"{user['username']} left the chat",
-            "type": "system"
-        }, chat_id)
-    except Exception as e:
-        print(f"Error in WebSocket for user {user.get('username', 'unknown')}: {e}")
-        manager.disconnect(websocket, chat_id, user)
-        # Можно добавить broadcast об ошибке, если нужно
+def main():
+    codeNumber = randint(100000, 999999)
+    # Обратите внимание, что теперь мы передаем код отдельно
+    print(send_email(message="", recipient_email="test@example.com", code=codeNumber))
+
+if __name__ == "__main__":
+    main()

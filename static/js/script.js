@@ -35,18 +35,24 @@ document.addEventListener("DOMContentLoaded", () => {
         registerForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             if (registerErrorElement) registerErrorElement.textContent = ""; // Очищаем предыдущую ошибку
+            
             const username = document.querySelector("#reg-username").value;
+            const email = document.querySelector("#reg-email").value;
+            console.log(email);
             const password = document.querySelector("#reg-password").value;
+            
             try {
                 const response = await fetch("/register", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, email, password })
                 });
+                
                 const data = await response.json();
+                
                 if (response.ok) {
-                    localStorage.setItem("token", data.access_token);
-                    window.location.href = `/chat?token=${data.access_token}`;
+                    // Вместо прямого перехода в чат, перенаправляем на страницу верификации
+                    window.location.href = `/verification?email=${encodeURIComponent(email)}&token=${data.temp_token}`;
                 } else {
                     if (registerErrorElement) registerErrorElement.textContent = data.detail || "Registration failed"; // Показываем ошибку в <p>
                 }
