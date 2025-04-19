@@ -107,7 +107,7 @@ async def send_email(message, recipient_email=None, code=None):
                     <p class="message">Если вы не регистрировались на нашем сайте, пожалуйста, проигнорируйте это сообщение.</p>
                 </div>
                 <div class="footer">
-                    <p>© {2023} YuChat. Все права защищены.</p>
+                    <p>© {2025} YuChat</p>
                     <p>Это автоматическое сообщение, пожалуйста, не отвечайте на него.</p>
                 </div>
             </div>
