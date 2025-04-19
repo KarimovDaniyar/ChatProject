@@ -373,7 +373,7 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
         chat_id = get_or_create_chat(chat_id)
     except ValueError:
         await websocket.close(code=1008, reason="Invalid chat ID")
-        return  # Exit if chat_id is invalid
+        return
 
     await manager.connect(websocket, chat_id, user)
     await manager.broadcast({
@@ -389,10 +389,23 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
             content = data.get("content")
             if content:
                 message_id = create_message(chat_id, user["id"], content)
+                # Fetch the newly created message to get receiver_id
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, u.username
+                    FROM messages m
+                    JOIN users u ON m.sender_id = u.id
+                    WHERE m.id = ?
+                ''', (message_id,))
+                message = cursor.fetchone()
+                conn.close()
+                
                 message_to_broadcast = {
                     "id": message_id,
-                    "user_id": user["id"],
-                    "username": user["username"],
+                    "sender_id": message["sender_id"],
+                    "receiver_id": message["receiver_id"],
+                    "username": message["username"],
                     "content": content,
                     "type": "message",
                     "timestamp": datetime.utcnow().isoformat() + "Z"

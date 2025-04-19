@@ -8,6 +8,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def init_db():
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
+    
+    # Create tables if they don't exist
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,11 +38,13 @@ def init_db():
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
+            sender_id INTEGER NOT NULL,
+            receiver_id INTEGER,
             content TEXT NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (chat_id) REFERENCES chats(id),
-            FOREIGN KEY (user_id) REFERENCES users(id)
+            FOREIGN KEY (sender_id) REFERENCES users(id),
+            FOREIGN KEY (receiver_id) REFERENCES users(id)
         )
     ''')
     cursor.execute('''
@@ -52,8 +56,50 @@ def init_db():
             FOREIGN KEY (contact_id) REFERENCES users(id)
         )
     ''')
+
+    # Check if migration is needed
+    cursor.execute("PRAGMA table_info(messages)")
+    columns = [col[1] for col in cursor.fetchall()]
+    
+    if 'user_id' in columns and 'sender_id' not in columns:
+        # Run migration if old column name exists
+        migrate_messages_table()
+
     conn.commit()
     conn.close()
+
+def migrate_messages_table():
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    try:
+        # Add receiver_id column if it doesn't exist
+        cursor.execute('''
+            ALTER TABLE messages ADD COLUMN receiver_id INTEGER
+        ''')
+        # Populate receiver_id for existing messages
+        cursor.execute('''
+            UPDATE messages
+            SET receiver_id = (
+                SELECT user_id
+                FROM chat_members
+                WHERE chat_id = messages.chat_id AND user_id != messages.user_id
+            )
+            WHERE EXISTS (
+                SELECT 1
+                FROM chat_members
+                WHERE chat_id = messages.chat_id AND user_id != messages.user_id
+            )
+        ''')
+        # Rename user_id to sender_id
+        cursor.execute('''
+            ALTER TABLE messages RENAME COLUMN user_id TO sender_id
+        ''')
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Migration error: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -132,11 +178,23 @@ def get_or_create_chat(chat_id):
         return chat['id']
     raise ValueError(f"Chat with ID {chat_id} does not exist")
 
-def create_message(chat_id, user_id, content):
+def create_message(chat_id, sender_id, content):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO messages (chat_id, user_id, content) VALUES (?, ?, ?)",
-                   (chat_id, user_id, content))
+    
+    # Determine receiver_id for one-on-one chats
+    cursor.execute('''
+        SELECT user_id
+        FROM chat_members
+        WHERE chat_id = ? AND user_id != ?
+    ''', (chat_id, sender_id))
+    receiver = cursor.fetchone()
+    receiver_id = receiver['user_id'] if receiver else None  # Null for group chats
+    
+    cursor.execute('''
+        INSERT INTO messages (chat_id, sender_id, receiver_id, content)
+        VALUES (?, ?, ?, ?)
+    ''', (chat_id, sender_id, receiver_id, content))
     conn.commit()
     message_id = cursor.lastrowid
     conn.close()
@@ -146,9 +204,9 @@ def get_messages(chat_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT m.id, m.content, m.timestamp, u.username
+        SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, u.username as sender_username
         FROM messages m
-        JOIN users u ON m.user_id = u.id
+        JOIN users u ON m.sender_id = u.id
         WHERE m.chat_id = ?
         ORDER BY m.timestamp ASC
     ''', (chat_id,))

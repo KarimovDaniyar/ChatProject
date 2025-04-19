@@ -221,7 +221,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Received WebSocket message:", event.data);
             const message = JSON.parse(event.data);
             
-            const isOutgoing = message.username === getCurrentUserId().username;
+            const currentUser = getCurrentUserId();
+            const isOutgoing = message.username === currentUser.username;
             const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
             displayMessage(
                 messageId,
@@ -330,7 +331,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadMessages() {
         try {
-            // Проверяем, выбран ли контакт
             if (!currentChatId) {
                 console.log("No chat selected");
                 return;
@@ -353,9 +353,20 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Loaded messages:", messages);
             messageContainer.innerHTML = "";
             displayedMessages.clear();
+    
+            const currentUser = getCurrentUserId();
+            
             messages.forEach(msg => {
-                const isOutgoing = msg.username === getCurrentUserId();
-                displayMessage(msg.id, msg.content, msg.username, isOutgoing ? currentUser.avatar : '/static/images/avatar.png', isOutgoing, msg.timestamp, "message");
+                const isOutgoing = msg.sender_username === currentUser.username;
+                displayMessage(
+                    msg.id,
+                    msg.content,
+                    msg.sender_username,
+                    isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
+                    isOutgoing,
+                    msg.timestamp,
+                    "message"
+                );
             });
         } catch (error) {
             console.error("Error loading messages:", error);
