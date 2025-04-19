@@ -80,7 +80,8 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadContacts() {
         try {
             console.log("Loading contacts...");
-            const response = await fetch("/users", {
+            // Изменяем запрос на получение контактов вместо всех пользователей
+            const response = await fetch("/contacts", {
                 headers: { "Authorization": `Bearer ${token}` }
             });
             if (!response.ok) {
@@ -90,39 +91,55 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.location.href = "/";
                     return;
                 }
-                throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
+                throw new Error(`Failed to fetch contacts: ${response.status} ${response.statusText}`);
             }
-            const users = await response.json();
-            console.log("Loaded users:", users);
+            const contacts = await response.json();
+            console.log("Loaded contacts:", contacts);
             contactsList.innerHTML = "";
-            users.forEach(user => {
-                if (user.username !== currentUsername) {
-                    const contactElement = document.createElement('div');
-                    contactElement.classList.add('contact');
-                    contactElement.setAttribute('data-username', user.username);
-                    contactElement.innerHTML = `
-                        <div class="contact-avatar">
-                            <img src="/static/images/avatar.png" alt="${user.username}">
-                        </div>
-                        <div class="contact-info">
-                            <h3>${user.username}</h3>
-                            <p>Offline</p>
-                        </div>
-                        <div class="contact-status offline"></div>
-                    `;
-                    contactsList.appendChild(contactElement);
-                }
+            
+            // Если у пользователя нет контактов, показываем сообщение
+            if (contacts.length === 0) {
+                const emptyMessage = document.createElement('div');
+                emptyMessage.classList.add('empty-contacts');
+                emptyMessage.innerHTML = `
+                    <div class="empty-contacts-message">
+                        <p>У вас пока нет контактов</p>
+                        <p>Нажмите кнопку "Добавить контакт" в меню</p>
+                    </div>
+                `;
+                contactsList.appendChild(emptyMessage);
+                return;
+            }
+
+            // Отображаем контакты из полученного списка
+            contacts.forEach(contact => {
+                const contactElement = document.createElement('div');
+                contactElement.classList.add('contact');
+                contactElement.setAttribute('data-username', contact.username);
+                contactElement.setAttribute('data-id', contact.id);
+                contactElement.innerHTML = `
+                    <div class="contact-avatar">
+                        <img src="/static/images/avatar.png" alt="${contact.username}">
+                    </div>
+                    <div class="contact-info">
+                        <h3>${contact.username}</h3>
+                        <p>Offline</p>
+                    </div>
+                    <div class="contact-status offline"></div>
+                `;
+                contactsList.appendChild(contactElement);
             });
 
-            const contacts = document.querySelectorAll('.contact');
-            contacts.forEach(contact => {
+            const contactElements = document.querySelectorAll('.contact');
+            contactElements.forEach(contact => {
                 contact.addEventListener('click', function() {
-                    contacts.forEach(c => c.classList.remove('active'));
+                    contactElements.forEach(c => c.classList.remove('active'));
                     this.classList.add('active');
                     
                     const contactName = this.querySelector('.contact-info h3').textContent;
                     const contactImg = this.querySelector('.contact-avatar img').src;
                     const isOnline = this.querySelector('.contact-status.online') !== null;
+                    const contactId = this.getAttribute('data-id');
                     
                     // Сохраняем текущий выбранный контакт
                     currentContactUsername = contactName;
@@ -276,25 +293,59 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Изменяем функцию отправки сообщения для поддержки загрузки медиа
     async function sendMessage(message, mediaFiles = []) {
         try {
-            let content = message;
+            // Сначала загружаем все медиа на сервер (если они есть)
+            const uploadedMedia = [];
+            
             if (mediaFiles.length > 0) {
-                content += mediaFiles.map(file => ` [Media: ${file.name}]`).join('');
+                const formData = new FormData();
+                
+                // Добавляем все файлы в FormData
+                for (let i = 0; i < mediaFiles.length; i++) {
+                    formData.append('files', mediaFiles[i]);
+                }
+                
+                // Загружаем файлы на сервер
+                const uploadResponse = await fetch(`/upload-media/${currentChatId}`, {
+                    method: 'POST',
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                if (!uploadResponse.ok) {
+                    throw new Error('Failed to upload media files');
+                }
+                
+                // Получаем информацию о загруженных файлах
+                const uploadResult = await uploadResponse.json();
+                uploadedMedia.push(...uploadResult.files);
             }
-            console.log("Sending message via WebSocket:", content); // Изменено
+            
+            // Формируем текст сообщения с метками для медиа
+            let content = message || '';
+            
+            // Добавляем метки медиа к сообщению
+            if (uploadedMedia.length > 0) {
+                content += uploadedMedia.map(file => ` [Media: ${file}]`).join('');
+            }
+            
+            // Отправляем сообщение через WebSocket
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     content: content,
-                    // username: getCurrentUserId(), // username будет добавлен на бэкенде
                     type: "message"
                 }));
             } else {
                 console.error("WebSocket is not open, cannot send message");
-                // Можно добавить логику для повторной попытки или уведомления пользователя
+                showNotification("Ошибка соединения. Пожалуйста, обновите страницу.");
             }
         } catch (error) {
             console.error("Send message error:", error);
+            showNotification("Не удалось отправить сообщение. Пожалуйста, попробуйте еще раз.");
         }
     }
 
@@ -381,11 +432,73 @@ document.addEventListener('DOMContentLoaded', function() {
         newContactNameInput.value = '';
     });
 
-    addContactBtn.addEventListener('click', function() {
+    // Обновление функционала добавления контакта
+    addContactBtn.addEventListener('click', async function() {
         const contactName = newContactNameInput.value.trim();
         if (contactName) {
-            addUserContainer.classList.add('hidden');
-            newContactNameInput.value = '';
+            try {
+                // 1. Search for the user by exact username
+                const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(contactName)}`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (!searchResponse.ok) {
+                    throw new Error(`Search failed: ${searchResponse.statusText}`);
+                }
+
+                const searchResults = await searchResponse.json();
+
+                if (searchResults.length === 1) {
+                    // 2. If exactly one user is found, get their ID
+                    const contactId = searchResults[0].id;
+
+                    // 3. Call the endpoint to add the contact by ID
+                    const addResponse = await fetch('/contacts/add', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ contact_ids: [contactId] })
+                    });
+
+                    if (!addResponse.ok) {
+                         const errorData = await addResponse.json();
+                         throw new Error(errorData.detail || `Failed to add contact: ${addResponse.statusText}`);
+                    }
+
+                    // 4. Handle success
+                    showNotification(`Контакт "${contactName}" успешно добавлен.`);
+                    await loadContacts(); // Reload the contact list
+                    addUserContainer.classList.add('hidden');
+                    newContactNameInput.value = '';
+
+                } else if (searchResults.length === 0) {
+                    showNotification(`Пользователь с именем "${contactName}" не найден.`);
+                } else {
+                    // Should not happen with the modified search, but handle just in case
+                    showNotification(`Найдено несколько пользователей с именем "${contactName}". Уточните имя.`);
+                }
+
+            } catch (error) {
+                console.error("Error adding contact:", error);
+                showNotification(`Ошибка при добавлении контакта: ${error.message}`);
+            } finally {
+                 // Ensure the input is cleared even if there was an error after finding the user
+                 // but before successfully adding. Keep modal open on error for correction.
+                 if (!addUserContainer.classList.contains('hidden') && searchResults && searchResults.length !== 1) {
+                     // Keep modal open if user not found or multiple found
+                 } else if (!addUserContainer.classList.contains('hidden') && !addResponse.ok) {
+                     // Keep modal open if add failed
+                 }
+                 else {
+                    // Clear input and hide modal on success or initial search failure
+                    newContactNameInput.value = '';
+                    addUserContainer.classList.add('hidden');
+                 }
+            }
+        } else {
+            showNotification("Введите имя пользователя для добавления.");
         }
     });
 
@@ -735,6 +848,25 @@ document.addEventListener('DOMContentLoaded', function() {
         messageInput.selectionStart = cursorPos + emoji.length;
         messageInput.selectionEnd = cursorPos + emoji.length;
         messageInput.focus();
+    }
+
+    // Добавим функцию для отображения уведомлений
+    function showNotification(message) {
+        // Простая реализация уведомления - можно улучшить с CSS-анимацией
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }, 100);
     }
 
     loadContacts();
