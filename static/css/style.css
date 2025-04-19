@@ -21,7 +21,7 @@ body{
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: url("/static/images/loginimage.png") no-repeat center center;
+    background: url("/static/images/background.png") no-repeat center center;
     background-size: cover;
 }
 .LogRegBox{

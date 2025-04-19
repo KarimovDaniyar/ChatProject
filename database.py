@@ -50,7 +50,7 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def create_user(username, password, email=None):
+def create_user(username, password, email):
     conn = get_db()
     hashed_password = pwd_context.hash(password)
     try:
@@ -60,7 +60,7 @@ def create_user(username, password, email=None):
         conn.commit()
         user_id = cursor.lastrowid
         return {"id": user_id, "username": username, "email": email}
-    except sqlite3.IntegrityError:
+    except sqlite3.IntegrityError as e:
         return None
     finally:
         conn.close()
