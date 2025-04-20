@@ -5,13 +5,14 @@ from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconn
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.websockets import WebSocketState
 from pydantic import BaseModel, EmailStr
 from typing import List, Dict, Optional
 import sqlite3
 import shutil
 # Обновляем импорты из database
 from database import (
-    init_db, create_user, get_user, verify_password,
+    get_db, get_or_create_one_on_one_chat, init_db, create_user, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
     add_contact, get_contacts, search_users
 )
@@ -39,7 +40,7 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, chat_id: int, user: dict):
         await websocket.accept()
-        if (chat_id not in self.active_connections):
+        if chat_id not in self.active_connections:
             self.active_connections[chat_id] = []
             self.active_users[chat_id] = []
         if not any(u["id"] == user["id"] for u in self.active_users[chat_id]):
@@ -48,21 +49,31 @@ class ConnectionManager:
         await self.broadcast_users(chat_id)
 
     def disconnect(self, websocket: WebSocket, chat_id: int, user: dict):
-        for conn in self.active_connections[chat_id]:
-            if conn["websocket"] == websocket:
-                self.active_connections[chat_id].remove(conn)
-                break
-        self.active_users[chat_id] = [u for u in self.active_users[chat_id] if u["id"] != user["id"]]
-        if not self.active_connections[chat_id]:
-            del self.active_connections[chat_id]
-            del self.active_users[chat_id]
-        else:
-            self.broadcast_users(chat_id)
+        if chat_id in self.active_connections:
+            for conn in self.active_connections[chat_id][:]:  # Copy to avoid modifying during iteration
+                if conn["websocket"] == websocket:
+                    self.active_connections[chat_id].remove(conn)
+                    break
+            self.active_users[chat_id] = [u for u in self.active_users[chat_id] if u["id"] != user["id"]]
+            if not self.active_connections[chat_id]:
+                del self.active_connections[chat_id]
+                del self.active_users[chat_id]
+            else:
+                self.broadcast_users(chat_id)
 
     async def broadcast(self, message: dict, chat_id: int):
         if chat_id in self.active_connections:
-            for connection in self.active_connections[chat_id]:
-                await connection["websocket"].send_json(message)
+            for connection in self.active_connections[chat_id][:]:  # Copy to avoid modifying during iteration
+                try:
+                    # Check if WebSocket is still open
+                    if connection["websocket"].client_state == WebSocketState.CONNECTED:
+                        await connection["websocket"].send_json(message)
+                    else:
+                        # Remove closed connection
+                        self.active_connections[chat_id].remove(connection)
+                except Exception as e:
+                    print(f"Error broadcasting to {connection['user']['username']}: {e}")
+                    self.active_connections[chat_id].remove(connection)
 
     async def broadcast_users(self, chat_id: int):
         if chat_id in self.active_connections:
@@ -329,49 +340,105 @@ async def upload_media(chat_id: int, files: List[UploadFile] = File(...), user: 
     
     return {"files": uploaded_files}
 
+# New endpoint to get or create a one-on-one chat
+from fastapi import HTTPException
+
+@app.get("/chat/one-on-one/{contact_id}")
+async def get_one_on_one_chat(contact_id: int, user: dict = Depends(get_current_user)):
+    # Verify contact_id exists
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE id = ?", (contact_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail="Contact not found")
+    conn.close()
+
+    chat_id = get_or_create_one_on_one_chat(user["id"], contact_id)
+    if chat_id is None:
+        raise HTTPException(status_code=500, detail="Failed to create or retrieve chat due to database error")
+    return {"chat_id": chat_id}
+
+# Modified WebSocket endpoint
 @app.websocket("/ws/{chat_id}")
 async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = Depends(get_current_user_ws)):
-    chat_id = get_or_create_chat(chat_id)
+    # Verify user is a member of the chat
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?", (chat_id, user["id"]))
+    if not cursor.fetchone():
+        await websocket.close(code=1008, reason="User not in chat")
+        conn.close()
+        return  # Exit immediately after closing
+    conn.close()
+    
+    try:
+        chat_id = get_or_create_chat(chat_id)
+    except ValueError:
+        await websocket.close(code=1008, reason="Invalid chat ID")
+        return
+
     await manager.connect(websocket, chat_id, user)
-    # Системное сообщение о подключении
     await manager.broadcast({
         "user_id": user["id"],
         "username": user["username"],
         "content": f"{user['username']} joined the chat",
         "type": "system"
     }, chat_id)
+    
     try:
         while True:
             data = await websocket.receive_json()
             content = data.get("content")
             if content:
-                # Сохраняем сообщение в БД
                 message_id = create_message(chat_id, user["id"], content)
-                # Готовим сообщение для рассылки
+                # Fetch the newly created message to get receiver_id
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, u.username
+                    FROM messages m
+                    JOIN users u ON m.sender_id = u.id
+                    WHERE m.id = ?
+                ''', (message_id,))
+                message = cursor.fetchone()
+                conn.close()
+                
                 message_to_broadcast = {
-                    "id": message_id, # Добавляем ID сообщения
-                    "user_id": user["id"],
-                    "username": user["username"],
+                    "id": message_id,
+                    "sender_id": message["sender_id"],
+                    "receiver_id": message["receiver_id"],
+                    "username": message["username"],
                     "content": content,
                     "type": "message",
-                    "timestamp": datetime.utcnow().isoformat() + "Z" # Добавляем временную метку
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
                 }
                 await manager.broadcast(message_to_broadcast, chat_id)
-            else:
-                print(f"Received empty message or invalid format from {user['username']}: {data}")
-
     except WebSocketDisconnect:
         manager.disconnect(websocket, chat_id, user)
-        # Системное сообщение об отключении
-        await manager.broadcast({
-            "user_id": user["id"],
-            "username": user["username"],
-            "content": f"{user['username']} left the chat",
-            "type": "system"
-        }, chat_id)
+        # Only broadcast if there are still active connections
+        if chat_id in manager.active_connections:
+            await manager.broadcast({
+                "user_id": user["id"],
+                "username": user["username"],
+                "content": f"{user['username']} left the chat",
+                "type": "system"
+            }, chat_id)
     except Exception as e:
         print(f"Error in WebSocket for user {user.get('username', 'unknown')}: {e}")
         manager.disconnect(websocket, chat_id, user)
+        # Only broadcast if there are still active connections
+        if chat_id in manager.active_connections:
+            await manager.broadcast({
+                "user_id": user["id"],
+                "username": user["username"],
+                "content": f"{user['username']} left the chat due to error",
+                "type": "system"
+            }, chat_id)
+    finally:
+        # Ensure connection is closed
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close(code=1000, reason="Normal closure")
         # Можно добавить broadcast об ошибке, если нужно
 
 @app.get("/user/profile")
