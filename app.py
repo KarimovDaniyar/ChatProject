@@ -12,7 +12,7 @@ import sqlite3
 import shutil
 # Обновляем импорты из database
 from database import (
-    get_db, get_or_create_one_on_one_chat, init_db, create_user, get_user_by_username, verify_password,
+    get_db, get_or_create_one_on_one_chat, init_db, create_user, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
     add_contact, get_contacts, search_users
 )
@@ -122,7 +122,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
     username = payload.get("sub")
-    user = get_user_by_username(username)
+    user = get_user('username', username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
@@ -135,7 +135,7 @@ async def get_current_user_from_query(token: Optional[str] = Query(None)):
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
     username = payload.get("sub")
-    user = get_user_by_username(username)
+    user = get_user('username', username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
@@ -151,7 +151,7 @@ async def get_current_user_ws(websocket: WebSocket):
         await websocket.close(code=1008, reason="Invalid token")
         raise WebSocketDisconnect("Invalid token")
     username = payload.get("sub")
-    user = get_user_by_username(username)
+    user = get_user('username', username)
     if not user:
         await websocket.close(code=1008, reason="User not found")
         raise WebSocketDisconnect("User not found")
@@ -185,9 +185,12 @@ async def serve_register():
 @app.post("/register")
 async def register(user: UserCreate):
     # Проверяем, существует ли пользователь с таким именем
-    existing_user = get_user_by_username(user.username)
+    existing_user = get_user('username', user.username)
+    existing_email = get_user('email', user.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already in use")
     
     temp_token = str(uuid.uuid4())
     verification_code = str(random.randint(100000, 999999))
@@ -256,7 +259,7 @@ async def resend_verification_code(resend: ResendCode):
 
 @app.post("/login")
 async def login(user: UserLogin):
-    db_user = get_user_by_username(user.username)
+    db_user = get_user('username', user.username)
     if not db_user or not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token(data={"sub": user.username})
