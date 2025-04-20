@@ -65,10 +65,20 @@ def create_user(username, password, email):
     finally:
         conn.close()
 
-def get_user_by_username(username):
+def get_user(field_name, value):
+    """
+    Get a user by any field (username or email).
+    
+    Args:
+        field_name: The field to search by ('username' or 'email')
+        value: The value to search for
+    
+    Returns:
+        A dictionary with user data if found, None otherwise
+    """
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    cursor.execute(f"SELECT * FROM users WHERE {field_name} = ?", (value,))
     user = cursor.fetchone()
     conn.close()
     return dict(user) if user else None
