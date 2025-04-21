@@ -463,6 +463,16 @@ body {
     position: relative;
 }
 
+/* Add spacing and style for sender name in message bubble */
+.message-sender {
+    font-weight: 600;
+    color: #2b455c;
+    font-size: 13px;
+    margin-bottom: 6px;
+    letter-spacing: 0.01em;
+    display: block;
+}
+
 /* Пузырь для входящих сообщений */
 .incoming .message-bubble {
     background-color:rgba(212, 214, 201, 1);
