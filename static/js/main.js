@@ -173,8 +173,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 emptyMessage.classList.add('empty-contacts');
                 emptyMessage.innerHTML = `
                     <div class="empty-contacts-message">
-                        <p>У вас пока нет контактов</p>
-                        <p>Нажмите кнопку "Добавить контакт" в меню</p>
+                        <p>You don't have any contacts yet</p>
+                        <p>Click the "Add Contact" button in the menu</p>
                     </div>
                 `;
                 contactsList.appendChild(emptyMessage);

@@ -71,8 +71,8 @@
             <div class="placeholder-icon">
               <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
             </div>
-            <h2>Выберите контакт для начала общения</h2>
-            <p>Выберите существующий контакт из списка или добавьте новый с помощью кнопки "Добавить контакт"</p>
+            <h2>Select a contact to start communicating with</h2>
+            <p>Select an existing contact from the list or add a new one using the Add Contact button</p>
           </div>
         </div>
         <div class="message-input">
@@ -92,14 +92,14 @@
         </div>
         <div id="emoji-picker-container" class="emoji-picker-container hidden">
           <div class="emoji-picker-header">
-            <h3>Выберите эмодзи</h3>
+            <h3>Choose an emoji</h3>
             <button id="close-emoji-picker" class="close-picker-btn">
               <ion-icon name="close-outline"></ion-icon>
             </button>
           </div>
           <div class="emoji-loading">
             <ion-icon name="sync-outline" class="emoji-loading-icon"></ion-icon>
-            <p>Загрузка эмодзи...</p>
+            <p>Uploading emojis...</p>
           </div>
           <div id="emoji-grid" class="emoji-grid"></div>
         </div>
@@ -116,34 +116,34 @@
     </div>
     <div id="add-user-container" class="modal-container hidden">
       <div class="modal-content">
-        <h2>Новый Контакт</h2>
+        <h2>New Contact</h2>
         <div class="new-contact-form">
           <div class="form-row">
             <div class="contact-icon">
               <ion-icon name="person-outline" class="form-icon"></ion-icon>
             </div>
-            <input type="text" id="new-contact-name" placeholder="Имя" />
+            <input type="text" id="new-contact-name" placeholder="Name" />
           </div>
           <div class="form-buttons">
-            <button id="cancel-add-contact" class="action-btn cancel-btn">Отмена</button>
-            <button id="add-contact-btn" class="action-btn add-btn">Добавить</button>
+            <button id="cancel-add-contact" class="action-btn cancel-btn">Cancel</button>
+            <button id="add-contact-btn" class="action-btn add-btn">Add</button>
           </div>
         </div>
       </div>
     </div>
     <div id="add-group-container" class="modal-container hidden">
       <div class="modal-content">
-        <h2>Новая Группа</h2>
+        <h2>New Group</h2>
         <div class="new-contact-form">
           <div class="form-row">
             <div class="contact-icon">
               <ion-icon name="people-outline" class="form-icon"></ion-icon>
             </div>
-            <input type="text" id="new-contact-name" placeholder="Название группы" />
+            <input type="text" id="new-contact-name" placeholder="Group name" />
           </div>
           <div class="form-buttons">
-            <button id="cancel-add-group" class="action-btn cancel-btn">Отмена</button>
-            <button id="add-group-btn" class="action-btn add-btn">Добавить</button>
+            <button id="cancel-add-group" class="action-btn cancel-btn">Cancel</button>
+            <button id="add-group-btn" class="action-btn add-btn">Add</button>
           </div>
         </div>
       </div>
@@ -154,7 +154,7 @@
           <button id="cancel-edit-profile" class="header-btn">
             <ion-icon name="arrow-back-outline"></ion-icon>
           </button>
-          <h2>Редактировать профиль</h2>
+          <h2>Edit Profile</h2>
           <button id="save-profile" class="header-btn">
             <ion-icon name="checkmark-outline"></ion-icon>
           </button>
@@ -167,7 +167,7 @@
             <div class="edit-icon">
               <ion-icon name="person-outline" class="form-icon"></ion-icon>
             </div>
-            <input type="text" id="edit-username" placeholder="Имя пользователя" />
+            <input type="text" id="edit-username" placeholder="Username" />
           </div>
           <div class="edit-form-row">
             <div class="edit-icon">
@@ -179,7 +179,7 @@
             <div class="edit-icon">
               <ion-icon name="lock-closed-outline" class="form-icon"></ion-icon>
             </div>
-            <input type="password" id="edit-password" placeholder="Пароль" />
+            <input type="password" id="edit-password" placeholder="Password" />
           </div>
         </div>
       </div>
@@ -187,16 +187,16 @@
     <div id="user-menu" class="user-menu hidden">
       <button class="clear-btn">
         <ion-icon name="trash-outline" class="user-menu-icon"></ion-icon>
-        Очистить историю
+        Clear history
       </button>
       <button class="delete-btn">
         <ion-icon name="close-circle-outline" class="user-menu-icon"></ion-icon>
-        Удалить чат
+        Delete chat
       </button>
     </div>
     <div id="confirmation-modal" class="confirmation-modal hidden">
       <div class="confirmation-content">
-        <p>Вы точно хотите удалить чат?</p>
+        <p>Are you sure you want to delete the chat?</p>
         <div class="confirmation-buttons">
           <button id="cancel-confirmation" class="action-btn cancel-btn">
             <ion-icon name="arrow-back-outline"></ion-icon>
@@ -209,7 +209,7 @@
     </div>
     <div id="media-lightbox" class="media-lightbox hidden">
       <div class="lightbox-header">
-        <div class="lightbox-title">Изображение</div>
+        <div class="lightbox-title">Image</div>
         <button id="close-lightbox" class="lightbox-btn">
           <ion-icon name="close-outline"></ion-icon>
         </button>
@@ -220,10 +220,10 @@
           <span class="media-date"></span>
         </div>
         <div class="lightbox-controls">
-          <button id="download-media" class="lightbox-btn download-btn" title="Скачать медиафайл">
+          <button id="download-media" class="lightbox-btn download-btn" title="Download media">
             <ion-icon name="download-outline"></ion-icon>
           </button>
-          <button id="share-media" class="lightbox-btn" title="Поделиться">
+          <button id="share-media" class="lightbox-btn" title="Share">
             <ion-icon name="share-social-outline"></ion-icon>
           </button>
         </div>
