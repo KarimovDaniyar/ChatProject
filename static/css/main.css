@@ -1242,18 +1242,18 @@ body {
 
 .placeholder-icon {
     font-size: 80px;
-    color: rgba(212, 214, 201, 0.7);
+    color: white;
     margin-bottom: 20px;
 }
 
 .placeholder-content h2 {
-    color: #fff;
+    color: white;
     font-size: 24px;
     margin-bottom: 15px;
 }
 
 .placeholder-content p {
-    color: rgba(255, 255, 255, 0.8);
+    color: white;
     font-size: 16px;
     line-height: 1.5;
 }
