@@ -1289,3 +1289,29 @@ body {
     z-index: 9999;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
+
+/* Styles for empty contacts message */
+.empty-contacts-message {
+    background: rgba(212, 214, 201, 0.15);
+    border-radius: 14px;
+    padding: 32px 24px;
+    margin: 32px 16px;
+    text-align: center;
+    color: #fff;
+    font-size: 18px;
+    transition: background 0.3s;
+}
+
+.empty-contacts-message p {
+    color: #fff;
+    font-size: 17px;
+    margin: 10px 0;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+}
+
+.empty-contacts-message p:first-child {
+    font-weight: 600;
+    font-size: 20px;
+    margin-bottom: 8px;
+}

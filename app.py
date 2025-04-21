@@ -367,7 +367,7 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
     cursor = conn.cursor()
     cursor.execute("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?", (chat_id, user["id"]))
     if not cursor.fetchone():
-        await websocket.close(code=1008, reason="User not in chat")
+        # await websocket.close(code=1008, reason="User not in chat")
         conn.close()
         return  # Exit immediately after closing
     conn.close()
@@ -375,16 +375,16 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
     try:
         chat_id = get_or_create_chat(chat_id)
     except ValueError:
-        await websocket.close(code=1008, reason="Invalid chat ID")
+        # await websocket.close(code=1008, reason="Invalid chat ID")
         return
 
     await manager.connect(websocket, chat_id, user)
-    await manager.broadcast({
-        "user_id": user["id"],
-        "username": user["username"],
-        "content": f"{user['username']} joined the chat",
-        "type": "system"
-    }, chat_id)
+    # await manager.broadcast({
+    #     "user_id": user["id"],
+    #     "username": user["username"],
+    #     "content": f"{user['username']} joined the chat",
+    #     "type": "system"
+    # }, chat_id)
     
     try:
         while True:
@@ -418,28 +418,29 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
         manager.disconnect(websocket, chat_id, user)
         # Only broadcast if there are still active connections
         if chat_id in manager.active_connections:
-            await manager.broadcast({
-                "user_id": user["id"],
-                "username": user["username"],
-                "content": f"{user['username']} left the chat",
-                "type": "system"
-            }, chat_id)
+            # await manager.broadcast({
+            #     "user_id": user["id"],
+            #     "username": user["username"],
+            #     "content": f"{user['username']} left the chat",
+            #     "type": "system"
+            # }, chat_id)
+            return
     except Exception as e:
         print(f"Error in WebSocket for user {user.get('username', 'unknown')}: {e}")
         manager.disconnect(websocket, chat_id, user)
         # Only broadcast if there are still active connections
         if chat_id in manager.active_connections:
-            await manager.broadcast({
-                "user_id": user["id"],
-                "username": user["username"],
-                "content": f"{user['username']} left the chat due to error",
-                "type": "system"
-            }, chat_id)
+            # await manager.broadcast({
+            #     "user_id": user["id"],
+            #     "username": user["username"],
+            #     "content": f"{user['username']} left the chat due to error",
+            #     "type": "system"
+            # }, chat_id)
+            return
     finally:
         # Ensure connection is closed
         if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.close(code=1000, reason="Normal closure")
-        # Можно добавить broadcast об ошибке, если нужно
 
 @app.get("/user/profile")
 async def get_user_profile(user: dict = Depends(get_current_user)):

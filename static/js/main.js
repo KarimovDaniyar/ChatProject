@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 messageId,
                 message.content,
                 message.username,
-                isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
+                isOutgoing ?  '/static/images/avatar.png' : '/static/images/avatar.png',
                 isOutgoing,
                 message.timestamp || new Date().toISOString(),
                 message.type || "message"
@@ -337,52 +337,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return Math.abs(hash); // Возвращаем положительное число
     }
 
-    // Функция для переподключения WebSocket с новым chatId
-    function reconnectWebSocket() {
-        if (ws) {
-            ws.close();
-        }
-        
-        ws = new WebSocket(`ws://${window.location.host}/ws/${currentChatId}?token=${token}`);
-        
-        ws.onopen = () => {
-            console.log("WebSocket connection established for chat:", currentChatId);
-        };
-        
-        ws.onmessage = (event) => {
-            console.log("Received WebSocket message:", event.data);
-            const message = JSON.parse(event.data);
-            
-            // Остальной код обработки сообщений...
-            const isOutgoing = message.username === getCurrentUserId();
-            const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
-            displayMessage(
-                messageId,
-                message.content,
-                message.username,
-                isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
-                isOutgoing,
-                message.timestamp || new Date().toISOString(),
-                message.type || "message"
-            );
-            const contactElement = document.querySelector(`.contact[data-username="${message.username}"]`);
-            if (contactElement) {
-                const statusElement = contactElement.querySelector('.contact-status');
-                statusElement.classList.remove('offline');
-                statusElement.classList.add('online');
-                contactElement.querySelector('.contact-info p').textContent = 'Online';
-            }
-        };
-        
-        ws.onclose = (event) => {
-            console.log("WebSocket connection closed:", event);
-        };
-        
-        ws.onerror = (error) => {
-            console.error("WebSocket error:", error);
-        };
-    }
-
     async function loadMessages() {
         try {
             if (!currentChatId) {
@@ -416,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     msg.id,
                     msg.content,
                     msg.sender_username,
-                    isOutgoing ? currentUser.avatar : '/static/images/avatar.png',
+                    isOutgoing ? '/static/images/avatar.png' : '/static/images/avatar.png',
                     isOutgoing,
                     msg.timestamp,
                     "message"
