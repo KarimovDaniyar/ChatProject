@@ -860,7 +860,7 @@ body {
 /* Media Preview Styles */
 .media-preview-container {
     position: absolute;
-    bottom: 80px;
+    bottom: 71px;
     left: 0;
     right: 0;
     background-color: rgba(34, 61, 85, 0.95);
@@ -1214,6 +1214,66 @@ body {
         width: calc(100% - 80px); /* Адаптация для мобильных устройств */
         margin-left: 80px;
     }
+    
+    .no-chat-placeholder {
+        left: 80px; /* Width of sidebar on mobile */
+    }
+}
+
+/* Styles for the no-chat placeholder */
+.no-chat-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    top: 64px; /* Height of chat-header */
+    left: 350px; /* Width of sidebar */
+    right: 0;
+    bottom: 70px; /* Height of message-input */
+    background-color: rgba(34, 61, 85, 0.95);
+    z-index: 5;
+}
+
+.placeholder-content {
+    text-align: center;
+    padding: 30px;
+    max-width: 500px;
+}
+
+.placeholder-icon {
+    font-size: 80px;
+    color: rgba(212, 214, 201, 0.7);
+    margin-bottom: 20px;
+}
+
+.placeholder-content h2 {
+    color: #fff;
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.placeholder-content p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+/* Style for disabled input and buttons */
+.chat-input.disabled,
+.message-input button.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Apply disabled style specifically to the button inside user-menu-btn if needed */
+#user-menu-btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.user-menu-btn button.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .notification {
@@ -1228,8 +1288,4 @@ body {
     transition: bottom 0.3s;
     z-index: 9999;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-}
-
-.notification.show {
-    bottom: 20px;
 }
