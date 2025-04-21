@@ -11,14 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageContainer = document.querySelector("#message-container");
     const messageInput = document.querySelector("#message-text");
     const sendButton = document.querySelector("#send-button");
-    const activeUsersList = document.querySelector("#active-users-list");
     const contactsList = document.querySelector('.contacts-list');
-
-    const currentUser = {
-        name: 'You',
-        avatar: '/static/images/avatar.png'
-    };
-
+    const noChatPlaceholder = document.querySelector('#no-chat-selected');
     const selectedMedia = [];
     const mediaInput = document.getElementById('media-input');
     const mediaButton = document.getElementById('media-button');
@@ -29,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const lightboxContent = document.querySelector('.lightbox-content');
     const closeLightboxBtn = document.getElementById('close-lightbox');
     const downloadMediaBtn = document.getElementById('download-media');
+    const chatHeader = document.querySelector('.chat-header');
 
     const emojiButton = document.querySelector('.emoji-button');
     const emojiPickerContainer = document.getElementById('emoji-picker-container');
@@ -58,6 +53,61 @@ document.addEventListener('DOMContentLoaded', function() {
     const editPasswordInput = document.getElementById('edit-password');
     const userMenuBtn = document.getElementById('user-menu-btn');
     const userMenu = document.getElementById('user-menu');
+
+    // Disable message input and buttons on initial load
+    disableMessaging();
+    
+    // Function to disable messaging when no chat is selected
+    function disableMessaging() {
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+        document.getElementById('media-button').disabled = true;
+        document.querySelector('.emoji-button').disabled = true;
+        userMenuBtn.disabled = true; // Disable the user menu button
+        
+        // Show placeholder
+        noChatPlaceholder.style.display = 'flex';
+
+        const headerAvatar = chatHeader.querySelector('.current-contact .contact-avatar img');
+        if (headerAvatar) {
+            headerAvatar.style.visibility = 'hidden';
+        }
+        
+        // Add visual indication that input is disabled
+        messageInput.classList.add('disabled');
+        sendButton.classList.add('disabled');
+        document.getElementById('media-button').classList.add('disabled');
+        document.querySelector('.emoji-button').classList.add('disabled');
+        userMenuBtn.classList.add('disabled'); // Add disabled class to user menu button
+    }
+    
+    // Function to enable messaging when a chat is selected
+    function enableMessaging() {
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+        document.getElementById('media-button').disabled = false;
+        document.querySelector('.emoji-button').disabled = false;
+        userMenuBtn.disabled = false; // Enable the user menu button
+        
+        // Hide placeholder
+        noChatPlaceholder.style.display = 'none';
+        const headerAvatar = chatHeader.querySelector('.current-contact .contact-avatar img');
+        if (headerAvatar) {
+            headerAvatar.style.visibility = 'visible';
+        }
+        
+        // Remove visual indication
+        messageInput.classList.remove('disabled');
+        sendButton.classList.remove('disabled');
+        document.getElementById('media-button').classList.remove('disabled');
+        document.querySelector('.emoji-button').classList.remove('disabled');
+        userMenuBtn.classList.remove('disabled'); // Remove disabled class from user menu button
+    }
+
+    const currentUser = {
+        name: 'You',
+        avatar: '/static/images/avatar.png'
+    };
 
     // Хранилище для идентификаторов отображённых сообщений
     const displayedMessages = new Set();
@@ -184,10 +234,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         // Load messages
                         loadMessages();
+                        
+                        // Enable messaging
+                        enableMessaging();
                     } catch (error) {
                         console.error("Error fetching chat ID:", error);
                         showNotification(`Не удалось открыть чат: ${error.message}`);
                         currentChatId = null; // Ensure no invalid WebSocket connection
+                        disableMessaging();
                     }
                 });
             });
