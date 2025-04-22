@@ -3,9 +3,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from random import randint
 
+sender = "for.yu.chat@gmail.com"
+password = "wegp lwio ndpt nevl"
+
 async def send_email(message, recipient_email=None, code=None):
-    sender = "karimovdaniar224@gmail.com"
-    password = "wqft oybx grqv skqd"
     recipient = recipient_email if recipient_email else "mamatjanovalymbek@gmail.com"
     
     # Создаем объект MIMEMultipart
@@ -145,7 +146,7 @@ async def send_email(message, recipient_email=None, code=None):
 def main():
     codeNumber = randint(100000, 999999)
     # Обратите внимание, что теперь мы передаем код отдельно
-    print(send_email(message="", recipient_email="test@example.com", code=codeNumber))
+    send_email(message="", recipient_email="test@example.com", code=codeNumber)
 
 if __name__ == "__main__":
     main()

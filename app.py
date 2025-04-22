@@ -10,6 +10,8 @@ from pydantic import BaseModel, EmailStr
 from typing import List, Dict, Optional
 import sqlite3
 import shutil
+from datetime import datetime, timedelta
+import secrets
 # Обновляем импорты из database
 from database import (
     get_db, get_or_create_one_on_one_chat, init_db, create_user, verify_password, get_user,
@@ -17,7 +19,6 @@ from database import (
     add_contact, get_contacts, search_users
 )
 from security import create_access_token, decode_access_token
-from datetime import datetime
 from main import send_email
 
 app = FastAPI()
@@ -112,6 +113,15 @@ class ResendCode(BaseModel):
     email: EmailStr
     temp_token: str
 
+# Модель для запроса восстановления пароля
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+# Модель для запроса сброса пароля
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
 # Словарь для хранения временных кодов верификации
 verification_codes = {}
 temp_users = {}
@@ -179,6 +189,12 @@ async def serve_chat(token: Optional[str] = Query(None)):
 @app.get("/register", response_class=HTMLResponse)
 async def serve_register():
     file_path = os.path.join(BASE_DIR, "templates", "register.html")
+    with open(file_path, encoding="utf-8") as f:
+        return f.read()
+    
+@app.get("/forgot_password", response_class=HTMLResponse)
+async def serve_forgot_password():
+    file_path = os.path.join(BASE_DIR, "templates", "password", "forgot_password.html")
     with open(file_path, encoding="utf-8") as f:
         return f.read()
 
@@ -450,3 +466,60 @@ async def get_user_profile(user: dict = Depends(get_current_user)):
         "username": user["username"],
         "email": user["email"] or ""  # Provide empty string if email is None
     }
+
+@app.post("/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    user = get_user('email', request.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь с таким email не найден")
+    # Генерируем токен и срок действия (например, 1 час)
+    token = secrets.token_urlsafe(32)
+    expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)",
+        (user["id"], token, expires_at)
+    )
+    conn.commit()
+    conn.close()
+    reset_link = f"http://127.0.0.1:8000/reset-password?token={token}"
+    await send_email(
+        f"Для сброса пароля перейдите по ссылке: {reset_link}",
+        recipient_email=request.email
+    )
+    return {"message": "Ссылка для сброса пароля отправлена на ваш email"}
+
+@app.get("/reset-password", response_class=HTMLResponse)
+async def serve_reset_password(token: str):
+    file_path = os.path.join(BASE_DIR, "templates", "password", "reset_password.html")
+    with open(file_path, encoding="utf-8") as f:
+        return f.read()
+
+@app.post("/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT user_id, expires_at, used FROM password_reset_tokens WHERE token = ?", (request.token,)
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Неверный или просроченный токен")
+    user_id, expires_at, used = row
+    if used:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Токен уже использован")
+    if datetime.utcnow() > datetime.fromisoformat(expires_at):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Срок действия токена истёк")
+    # Обновляем пароль
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    hashed_password = pwd_context.hash(request.new_password)
+    cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, user_id))
+    cursor.execute("UPDATE password_reset_tokens SET used = 1 WHERE token = ?", (request.token,))
+    conn.commit()
+    conn.close()
+    return {"message": "Пароль успешно изменён"}
