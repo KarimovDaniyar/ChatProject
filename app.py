@@ -558,3 +558,20 @@ async def get_user_groups(user: dict = Depends(get_current_user)):
     groups = cursor.fetchall()
     conn.close()
     return [dict(group) for group in groups]
+
+@app.get("/groups/{group_id}/members")
+async def get_group_members(
+    group_id: int,
+    user: dict = Depends(get_current_user)
+):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT u.id, u.username 
+        FROM chat_members cm
+        JOIN users u ON cm.user_id = u.id
+        WHERE cm.chat_id = ?
+    ''', (group_id,))
+    members = cursor.fetchall()
+    conn.close()
+    return [dict(member) for member in members]

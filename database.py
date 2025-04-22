@@ -20,12 +20,14 @@ def init_db():
         )
     ''')
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chats (
+    CREATE TABLE IF NOT EXISTS chats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
-        is_group BOOLEAN DEFAULT FALSE
-                   )
-    ''')
+        is_group BOOLEAN DEFAULT FALSE,
+        creator_id INTEGER,
+        FOREIGN KEY (creator_id) REFERENCES users(id)
+    )
+''')
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS chat_members (
         chat_id INTEGER,
@@ -318,8 +320,8 @@ def create_group_chat(creator_id: int, group_name: str) -> int:
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO chats (name, is_group) VALUES (?, TRUE)",
-            (group_name,)
+            "INSERT INTO chats (name, is_group, creator_id) VALUES (?, TRUE, ?)",
+            (group_name, creator_id)
         )
         group_id = cursor.lastrowid
         # Добавляем создателя в группу как участника

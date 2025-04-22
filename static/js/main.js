@@ -692,6 +692,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification(`Ошибка: ${error.message}`);
         }
     });
+    
 
     addGroupContainer.addEventListener('click', function(e) {
         if (e.target === addGroupContainer) {
@@ -985,9 +986,39 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
                 contactsList.appendChild(groupElement);
+    
+                // Добавляем обработчик клика для группы
+                groupElement.addEventListener('click', async function() {
+                    // Удаляем активный класс у всех контактов и групп
+                    document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+    
+                    // Устанавливаем текущий ID чата и имя группы
+                    currentChatId = group.id;
+                    currentContactUsername = group.name;
+    
+                    // Обновляем заголовок чата
+                    document.querySelector('.current-contact .contact-info h3').textContent = group.name;
+                    document.querySelector('.current-contact .contact-info p').textContent = 'Group';
+                    const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
+                    if (headerAvatar) {
+                        headerAvatar.src = '/static/images/group.png'; // Можно использовать иконку для групп
+                        headerAvatar.style.visibility = 'visible';
+                    }
+    
+                    // Переподключаем WebSocket
+                    reconnectWebSocket();
+    
+                    // Загружаем сообщения
+                    loadMessages();
+    
+                    // Включаем возможность отправки сообщений
+                    enableMessaging();
+                });
             });
         } catch (error) {
-            console.error(error);
+            console.error("Ошибка загрузки групп:", error);
+            showNotification("Не удалось загрузить группы");
         }
     }
 
