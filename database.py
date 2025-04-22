@@ -56,6 +56,16 @@ def init_db():
             FOREIGN KEY (contact_id) REFERENCES users(id)
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL,
+            expires_at DATETIME NOT NULL,
+            used INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
 
     # Check if migration is needed
     cursor.execute("PRAGMA table_info(messages)")
