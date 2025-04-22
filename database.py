@@ -1,4 +1,5 @@
 import sqlite3
+from typing import List
 from passlib.context import CryptContext
 
 DATABASE = 'chat.db'
@@ -20,19 +21,19 @@ def init_db():
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            is_group BOOLEAN DEFAULT FALSE
-        )
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        is_group BOOLEAN DEFAULT FALSE
+                   )
     ''')
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_members (
-            chat_id INTEGER,
-            user_id INTEGER,
-            PRIMARY KEY (chat_id, user_id),
-            FOREIGN KEY (chat_id) REFERENCES chats(id),
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
+    CREATE TABLE IF NOT EXISTS chat_members (
+        chat_id INTEGER,
+        user_id INTEGER,
+        PRIMARY KEY (chat_id, user_id),
+        FOREIGN KEY (chat_id) REFERENCES chats(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+)
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS messages (
@@ -309,6 +310,44 @@ def add_contact(user_id, contact_id):
     except sqlite3.Error as e:
         print(f"Database error: {e}")
         return False
+    finally:
+        conn.close()
+        
+def create_group_chat(creator_id: int, group_name: str) -> int:
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO chats (name, is_group) VALUES (?, TRUE)",
+            (group_name,)
+        )
+        group_id = cursor.lastrowid
+        # Добавляем создателя в группу как участника
+        cursor.execute(
+            "INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)",
+            (group_id, creator_id)
+        )
+        conn.commit()
+        return group_id
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
+def add_group_members(group_id: int, user_ids: List[int]):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        for user_id in user_ids:
+            cursor.execute(
+                "INSERT OR IGNORE INTO chat_members (chat_id, user_id) VALUES (?, ?)",
+                (group_id, user_id)
+            )
+        conn.commit()
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise e
     finally:
         conn.close()
 

@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const addGroupContainer = document.getElementById('add-group-container');
     const cancelAddGroup = document.getElementById('cancel-add-group');
     const addGroupBtn = document.getElementById('add-group-btn');
-    const newGroupNameInput = document.getElementById('new-contact-name');
+    const newGroupNameInput = document.getElementById('new-group-name');
     const editProfileButton = document.getElementById('edit-profile');
     const editProfileContainer = document.getElementById('edit-profile-container');
     const cancelEditProfile = document.getElementById('cancel-edit-profile');
@@ -252,6 +252,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error("Error loading contacts:", error);
         }
+        await loadGroups();
     }
     
     // Update reconnectWebSocket to use currentChatId
@@ -644,11 +645,51 @@ document.addEventListener('DOMContentLoaded', function() {
         newGroupNameInput.value = '';
     });
 
-    addGroupBtn.addEventListener('click', function() {
+    addGroupBtn.addEventListener('click', async function() {
         const groupName = newGroupNameInput.value.trim();
-        if (groupName) {
+        if (!groupName) {
+            showNotification("Введите название группы.");
+            return;
+        }
+    
+        try {
+            const response = await fetch("/groups/create", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ name: groupName })
+            });
+    
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Ошибка создания группы");
+            }
+    
+            const groupData = await response.json();
+    
+            // Добавьте новый элемент группы в список контактов
+            const groupElement = document.createElement('div');
+            groupElement.classList.add('contact', 'group');
+            groupElement.setAttribute('data-group-id', groupData.group_id);
+            groupElement.innerHTML = `
+                <div class="contact-avatar">
+                    <ion-icon name="people-outline"></ion-icon>
+                </div>
+                <div class="contact-info">
+                    <h3>${groupData.name}</h3>
+                    <p>Group</p>
+                </div>
+            `;
+            contactsList.appendChild(groupElement);
+    
             addGroupContainer.classList.add('hidden');
             newGroupNameInput.value = '';
+            showNotification(`Группа "${groupData.name}" успешно создана.`);
+    
+        } catch (error) {
+            showNotification(`Ошибка: ${error.message}`);
         }
     });
 
@@ -919,6 +960,36 @@ document.addEventListener('DOMContentLoaded', function() {
             emojiPickerContainer.classList.add('hidden');
         }
     });
+
+    async function loadGroups() {
+        try {
+            const response = await fetch("/user/groups", {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            if (!response.ok) throw new Error("Не удалось загрузить группы");
+            const groups = await response.json();
+    
+            groups.forEach(group => {
+                const groupElement = document.createElement('div');
+                groupElement.classList.add('contact', 'group');
+                groupElement.setAttribute('data-group-id', group.id);
+                groupElement.innerHTML = `
+                    <div class="contact-avatar">
+                        <ion-icon name="people-outline"></ion-icon>
+                    </div>
+                    <div class="contact-info">
+                        <h3>${group.name}</h3>
+                        <p>Group</p>
+                    </div>
+                `;
+                contactsList.appendChild(groupElement);
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    }
 
     function fetchEmojis() {
         emojiLoading.style.display = 'flex';

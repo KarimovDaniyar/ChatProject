@@ -1,5 +1,6 @@
 import os
 import random
+import secrets
 import uuid
 from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form, Path
 from fastapi.security import OAuth2PasswordBearer
@@ -10,15 +11,14 @@ from pydantic import BaseModel, EmailStr
 from typing import List, Dict, Optional
 import sqlite3
 import shutil
-from datetime import datetime, timedelta
-import secrets
 # Обновляем импорты из database
 from database import (
-    get_db, get_or_create_one_on_one_chat, init_db, create_user, verify_password, get_user,
+    add_group_members, create_group_chat, get_db, get_or_create_one_on_one_chat, init_db, create_user, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
     add_contact, get_contacts, search_users
 )
 from security import create_access_token, decode_access_token
+from datetime import datetime, timedelta
 from main import send_email
 
 app = FastAPI()
@@ -40,7 +40,7 @@ class ConnectionManager:
         self.active_users: Dict[int, List[Dict]] = {}
 
     async def connect(self, websocket: WebSocket, chat_id: int, user: dict):
-        await websocket.accept()
+        # НЕ вызывайте websocket.accept() здесь!
         if chat_id not in self.active_connections:
             self.active_connections[chat_id] = []
             self.active_users[chat_id] = []
@@ -49,7 +49,7 @@ class ConnectionManager:
         self.active_connections[chat_id].append({"websocket": websocket, "user": user})
         await self.broadcast_users(chat_id)
 
-    def disconnect(self, websocket: WebSocket, chat_id: int, user: dict):
+    async def disconnect(self, websocket: WebSocket, chat_id: int, user: dict):
         if chat_id in self.active_connections:
             for conn in self.active_connections[chat_id][:]:  # Copy to avoid modifying during iteration
                 if conn["websocket"] == websocket:
@@ -60,7 +60,7 @@ class ConnectionManager:
                 del self.active_connections[chat_id]
                 del self.active_users[chat_id]
             else:
-                self.broadcast_users(chat_id)
+                await self.broadcast_users(chat_id)
 
     async def broadcast(self, message: dict, chat_id: int):
         if chat_id in self.active_connections:
@@ -82,6 +82,19 @@ class ConnectionManager:
             await self.broadcast({"type": "user_list", "users": user_list}, chat_id)
 
 manager = ConnectionManager()
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+class GroupCreate(BaseModel):
+    name: str
+
+class GroupAddMembers(BaseModel):
+    user_ids: List[int]
 
 # Модели для входа и регистрации
 class UserCreate(BaseModel):
@@ -112,15 +125,6 @@ class EmailVerification(BaseModel):
 class ResendCode(BaseModel):
     email: EmailStr
     temp_token: str
-
-# Модель для запроса восстановления пароля
-class ForgotPasswordRequest(BaseModel):
-    email: str
-
-# Модель для запроса сброса пароля
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
 
 # Словарь для хранения временных кодов верификации
 verification_codes = {}
@@ -189,12 +193,6 @@ async def serve_chat(token: Optional[str] = Query(None)):
 @app.get("/register", response_class=HTMLResponse)
 async def serve_register():
     file_path = os.path.join(BASE_DIR, "templates", "register.html")
-    with open(file_path, encoding="utf-8") as f:
-        return f.read()
-    
-@app.get("/forgot_password", response_class=HTMLResponse)
-async def serve_forgot_password():
-    file_path = os.path.join(BASE_DIR, "templates", "password", "forgot_password.html")
     with open(file_path, encoding="utf-8") as f:
         return f.read()
 
@@ -387,13 +385,13 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
         conn.close()
         return  # Exit immediately after closing
     conn.close()
-    
     try:
         chat_id = get_or_create_chat(chat_id)
     except ValueError:
         # await websocket.close(code=1008, reason="Invalid chat ID")
         return
 
+    await websocket.accept()
     await manager.connect(websocket, chat_id, user)
     # await manager.broadcast({
     #     "user_id": user["id"],
@@ -523,3 +521,40 @@ async def reset_password(request: ResetPasswordRequest):
     conn.commit()
     conn.close()
     return {"message": "Пароль успешно изменён"}
+
+@app.post("/groups/create")
+async def create_group(
+    group_data: GroupCreate,
+    user: dict = Depends(get_current_user)
+):
+    try:
+        group_id = create_group_chat(user["id"], group_data.name)
+        return {"group_id": group_id, "name": group_data.name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Group creation failed: {str(e)}")
+
+@app.post("/groups/{group_id}/add-members")
+async def add_group_members_endpoint(
+    group_id: int,
+    members: GroupAddMembers,
+    user: dict = Depends(get_current_user)
+):
+    try:
+        add_group_members(group_id, members.user_ids)
+        return {"status": "Members added successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add members: {str(e)}")
+
+@app.get("/user/groups")
+async def get_user_groups(user: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT c.id, c.name
+        FROM chats c
+        JOIN chat_members cm ON c.id = cm.chat_id
+        WHERE cm.user_id = ? AND c.is_group = TRUE
+    ''', (user["id"],))
+    groups = cursor.fetchall()
+    conn.close()
+    return [dict(group) for group in groups]
