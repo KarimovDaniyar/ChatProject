@@ -83,6 +83,62 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Проверка токена для WebSocket
+async def get_current_user_ws(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(1008, "Missing token")
+        raise WebSocketDisconnect()
+    payload = decode_access_token(token)
+    if payload is None:
+        await websocket.close(1008, "Invalid token")
+        raise WebSocketDisconnect()
+    user_id = payload.get("user_id")
+    if not user_id:
+        await websocket.close(1008, "Invalid token")
+        raise WebSocketDisconnect()
+    user = get_user('id', user_id)
+    if not user:
+        await websocket.close(1008, "User not found")
+        raise WebSocketDisconnect()
+    return user
+
+class NotificationManager:
+    def __init__(self):
+        # ключ = user_id, значение = список WebSocket
+        self.active: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, ws: WebSocket, user_id: int):
+        await ws.accept()
+        self.active.setdefault(user_id, []).append(ws)
+
+    def disconnect(self, ws: WebSocket, user_id: int):
+        conns = self.active.get(user_id, [])
+        if ws in conns:
+            conns.remove(ws)
+        if not conns:
+            self.active.pop(user_id, None)
+
+    async def send(self, user_id: int, message: dict):
+        for ws in list(self.active.get(user_id, [])):
+            try:
+                await ws.send_json(message)
+            except WebSocketDisconnect:
+                self.disconnect(ws, user_id)
+
+notif_manager = NotificationManager()
+
+@app.websocket("/ws/notifications")
+async def notifications_ws(websocket: WebSocket, user: dict = Depends(get_current_user_ws)):
+    uid = user["id"]
+    await notif_manager.connect(websocket, uid)
+    try:
+        # держим соединение открытым
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        notif_manager.disconnect(websocket, uid)
+
 # Модели для входа и регистрации
 class UserCreate(BaseModel):
     username: str
@@ -156,22 +212,6 @@ async def get_current_user_from_query(token: Optional[str] = Query(None)):
     user = get_user("id", user_id)
     if not user:
         raise HTTPException(401, "User not found")
-    return user
-
-# Проверка токена для WebSocket
-async def get_current_user_ws(websocket: WebSocket):
-    token = websocket.query_params.get("token")
-    if not token:
-        await websocket.close(1008, "Missing token"); raise WebSocketDisconnect()
-    payload = decode_access_token(token)
-    if payload is None:
-        await websocket.close(1008, "Invalid token"); raise WebSocketDisconnect()
-    user_id = payload.get("user_id")
-    if not user_id:
-        await websocket.close(1008, "Invalid token"); raise WebSocketDisconnect()
-    user = get_user('id', user_id)
-    if not user:
-        await websocket.close(1008, "User not found"); raise WebSocketDisconnect()
     return user
 
 # Маршруты
@@ -307,23 +347,18 @@ async def read_contacts(user: dict = Depends(get_current_user)):
 @app.post("/contacts/add")
 async def add_contacts_route(contacts_to_add: ContactsAdd, user: dict = Depends(get_current_user)):
     current_user_id = user["id"]
-    added_count = 0
-    for contact_id in contacts_to_add.contact_ids:
-        if contact_id != current_user_id: # Нельзя добавить себя
-            if add_contact(current_user_id, contact_id):
-                added_count += 1
-    if added_count > 0:
-         # Return the updated list of contacts
-         updated_contacts = get_contacts(current_user_id)
-         return {"status": f"{added_count} contacts added successfully.", "contacts": updated_contacts}
-    else:
-         # Handle cases where no contacts were added (e.g., all IDs were self or already contacts)
-         # Check if the list was empty or contained only self
-         if not contacts_to_add.contact_ids or all(cid == current_user_id for cid in contacts_to_add.contact_ids):
-              raise HTTPException(status_code=400, detail="No valid contact IDs provided.")
-         else:
-              # Assume they might already be contacts or another issue occurred
-              raise HTTPException(status_code=400, detail="Could not add contacts. They might already exist or IDs are invalid.")
+    added = []
+    for cid in contacts_to_add.contact_ids:
+        if cid != current_user_id and add_contact(current_user_id, cid):
+            added.append(cid)
+    if added:
+        # обновляем список на стороне A
+        await notif_manager.send(current_user_id, {"type":"contacts_update"})
+        # и на стороне B
+        for cid in added:
+            await notif_manager.send(cid, {"type":"contacts_update"})
+        return {"status": f"{len(added)} contacts added", "contacts": get_contacts(current_user_id)}
+    raise HTTPException(400, "Could not add contacts…")
 
 # Новый эндпоинт для поиска пользователей
 @app.get("/users/search")

@@ -306,6 +306,17 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("WebSocket error:", error);
         };
     }
+ 
+    // …после reconnectWebSocket()/ws.onmessage…
+    const notifSocket = new WebSocket(`ws://${window.location.host}/ws/notifications?token=${token}`);
+    notifSocket.onmessage = evt => {
+        const data = JSON.parse(evt.data);
+        if (data.type === 'contacts_update') {
+            loadContacts();
+        }
+    };
+    notifSocket.onerror = e => console.error('Notifications WS error', e);
+    notifSocket.onclose = () => console.log('Notifications WS closed');
 
     async function loadMessages() {
         try {
@@ -313,7 +324,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log("No chat selected");
                 return;
             }
-            
             console.log("Loading messages for chat_id:", currentChatId);
             const response = await fetch(`/messages/${currentChatId}`, {
                 headers: { "Authorization": `Bearer ${token}` }
