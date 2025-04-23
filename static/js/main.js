@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const mediaPreviewContent = document.getElementById('media-preview-content');
     const closePreviewBtn = document.getElementById('close-preview');
     const mediaLightbox = document.getElementById('media-lightbox');
-    const lightboxTitle = document.querySelector('.lightbox-title');  // add reference to title
     const lightboxContent = document.querySelector('.lightbox-content');
     const closeLightboxBtn = document.getElementById('close-lightbox');
     const downloadMediaBtn = document.getElementById('download-media');
@@ -851,22 +850,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.addEventListener('click', function(e) {
-        // support clicking directly on the .message-media element
-        const mediaElement = e.target.closest('.message-media');
-        if (mediaElement) {
-            const mediaUrl = mediaElement.src || mediaElement.currentSrc;
-            const isVideo = mediaElement.tagName.toLowerCase() === 'video';
+        const mediaImg = e.target.closest('.message-media img, .message-media video');
+        if (mediaImg) {
+            const mediaUrl = mediaImg.src || mediaImg.currentSrc;
+            const isVideo = mediaImg.tagName.toLowerCase() === 'video';
             if (isVideo) {
-                lightboxTitle.textContent = 'Video';
-                lightboxContent.innerHTML = `<video src="${mediaUrl}" controls autoplay class="full-media"></video>`;
+                lightboxContent.innerHTML = `<video src="${mediaUrl}" controls autoplay></video>`;
                 downloadMediaBtn.setAttribute('data-src', mediaUrl);
                 downloadMediaBtn.setAttribute('data-filename', 'video_' + new Date().getTime() + '.mp4');
             } else {
-                lightboxTitle.textContent = 'Image';
-                lightboxContent.innerHTML = `<img src="${mediaUrl}" alt="Full size image" class="full-media">`;
-                downloadMediaBtn.setAttribute('data-src', mediaUrl);
-                downloadMediaBtn.setAttribute('data-filename', 'image_' + new Date().getTime() + '.jpg');
-            }
+                lightboxContent.innerHTML = `<img src="${mediaUrl}" alt="Full size image">`;
+            downloadMediaBtn.setAttribute('data-src', mediaUrl);
+            downloadMediaBtn.setAttribute('data-filename', 'image_' + new Date().getTime() + '.jpg');
+        }
             mediaLightbox.classList.remove('hidden');
         }
     });
