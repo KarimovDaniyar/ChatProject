@@ -155,42 +155,6 @@ def get_user(field_name, value):
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-def get_or_create_one_on_one_chat(user_id1, user_id2):
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    try:
-        # Check if a one-on-one chat exists between these two users
-        cursor.execute('''
-            SELECT c.id
-            FROM chats c
-            JOIN chat_members cm1 ON c.id = cm1.chat_id
-            JOIN chat_members cm2 ON c.id = cm2.chat_id
-            WHERE c.is_group = FALSE
-            AND cm1.user_id = ? AND cm2.user_id = ?
-            AND (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) = 2
-        ''', (user_id1, user_id2))
-        
-        chat = cursor.fetchone()
-        if chat:
-            return chat['id']
-        
-        # Create a new chat
-        cursor.execute("INSERT INTO chats (name, is_group) VALUES (?, FALSE)", (f"Chat_{user_id1}_{user_id2}",))
-        chat_id = cursor.lastrowid
-        
-        # Add both users to the chat
-        cursor.execute("INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)", (chat_id, user_id1))
-        cursor.execute("INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)", (chat_id, user_id2))
-        
-        conn.commit()
-        return chat_id
-    except sqlite3.Error as e:
-        print(f"Database error: {e}")
-        return None
-    finally:
-        conn.close()
-
 def get_or_create_chat(chat_id):
     conn = get_db()
     cursor = conn.cursor()
@@ -280,6 +244,7 @@ def get_or_create_one_on_one_chat(user_id1, user_id2):
         raise sqlite3.Error(f"Failed to create or retrieve chat: {e}")
     finally:
         conn.close()
+
 def add_contact(user_id, contact_id):
     if user_id == contact_id:
         return False
