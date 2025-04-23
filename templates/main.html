@@ -131,6 +131,7 @@
         </div>
       </div>
     </div>
+    
     <div id="add-group-container" class="modal-container hidden">
       <div class="modal-content">
         <h2>New Group</h2>
@@ -193,6 +194,19 @@
         <ion-icon name="close-circle-outline" class="user-menu-icon"></ion-icon>
         Delete chat
       </button>
+    </div>
+    <div id="group-user-menu" class="group-user-menu hidden">
+      <button id="add-group-member-btn">
+        <ion-icon name="person-add-outline" class="user-menu-icon"></ion-icon>
+        Добавить участника
+      </button>
+      <button id="leave-group-btn">
+        <ion-icon name="log-out-outline" class="user-menu-icon"></ion-icon>
+        Выйти из группы
+      </button>
+      <div id="users-list">
+        <!-- Здесь будет динамический список пользователей -->
+      </div>
     </div>
     <div id="confirmation-modal" class="confirmation-modal hidden">
       <div class="confirmation-content">

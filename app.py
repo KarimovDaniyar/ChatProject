@@ -575,3 +575,22 @@ async def get_group_members(
     members = cursor.fetchall()
     conn.close()
     return [dict(member) for member in members]
+
+@app.post("/groups/{group_id}/leave")
+async def leave_group(group_id: int, user: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Проверяем, что пользователь в группе
+        cursor.execute("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?", (group_id, user["id"]))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Вы не участник этой группы")
+
+        # Удаляем пользователя из группы
+        cursor.execute("DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?", (group_id, user["id"]))
+        conn.commit()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка выхода из группы: {str(e)}")
+    finally:
+        conn.close()
+    return {"detail": "Вы успешно вышли из группы"}
