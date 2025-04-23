@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const token = localStorage.getItem("token");
+    // заменили const на let, чтобы можно было присваивать новый токен:
+    let token = localStorage.getItem("token");
     if (!token) {
         console.log("No token found, redirecting to login");
         window.location.href = "/";
@@ -7,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     let currentChatId = null; // Добавьте эту переменную
-    let currentContactUsername = null; // Для хранения выбранного контакта
+    let currentContactAvatar = null; // Для хранения аватара текущего контакта
     const messageContainer = document.querySelector("#message-container");
     const messageInput = document.querySelector("#message-text");
     const sendButton = document.querySelector("#send-button");
@@ -112,16 +113,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Хранилище для идентификаторов отображённых сообщений
     const displayedMessages = new Set();
 
+    // Получаем свой user_id из JWT
     function getCurrentUserId() {
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
-            return {
-                username: payload.sub,
-                email: payload.email || ''
-            }
-        } catch (error) {
-            console.error("Error decoding token:", error);
-            return {username: null, email: null };
+            return parseInt(payload.user_id, 10);
+        } catch {
+            return null;
         }
     }
 
@@ -210,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const isOnline = this.querySelector('.contact-status.online') !== null;
                     const contactId = this.getAttribute('data-id');
                     
-                    currentContactUsername = contactName;
+                    currentContactAvatar = contactImg;  // store contact avatar
                     
                     // Fetch chat_id from backend
                     try {
@@ -263,6 +261,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (ws) {
+            ws.onclose = null;  // disable onclose handler to avoid loop
             ws.close();
         }
         
@@ -273,69 +272,40 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         ws.onmessage = (event) => {
-            console.log("Received WebSocket message:", event.data);
-            const message = JSON.parse(event.data);
-            
-            const currentUser = getCurrentUserId();
-            const isOutgoing = message.username === currentUser.username;
-            const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
-            displayMessage(
-                messageId,
-                message.content,
-                message.username,
-                isOutgoing ?  '/static/images/avatar.png' : '/static/images/avatar.png',
-                isOutgoing,
-                message.timestamp || new Date().toISOString(),
-                message.type || "message"
-            );
-            const contactElement = document.querySelector(`.contact[data-username="${message.username}"]`);
-            if (contactElement) {
-                const statusElement = contactElement.querySelector('.contact-status');
-                statusElement.classList.remove('offline');
-                statusElement.classList.add('online');
-                contactElement.querySelector('.contact-info p').textContent = 'Online';
+            const data = JSON.parse(event.data);
+            if (data.type === 'message') {
+                console.log("Message event data:", data);
+                const currentUserId = getCurrentUserId();
+                const isOutgoing = data.sender_id === currentUserId;
+                displayMessage(
+                    data.id,
+                    data.content,
+                    data.sender_username,
+                    isOutgoing ? currentUser.avatar : currentContactAvatar,
+                    isOutgoing,
+                    data.timestamp,
+                    'message'
+                );
+            } else if (data.type === 'user_list') {
+                // Update online status of contacts
+                data.users.forEach(u => {
+                    const el = document.querySelector(`.contact[data-id="${u.id}"]`);
+                    if (el) {
+                        el.querySelector('.contact-status').classList.replace('offline','online');
+                        el.querySelector('.contact-info p').textContent = 'Online';
+                    }
+                });
             }
         };
         
         ws.onclose = (event) => {
             console.log("WebSocket connection closed:", event);
-            // Optionally attempt to reconnect after a delay
-            setTimeout(() => {
-                if (currentChatId) {
-                    console.log("Attempting to reconnect WebSocket...");
-                    reconnectWebSocket();
-                }
-            }, 5000); // Reconnect after 5 seconds
+            // Automatic reconnection removed to prevent reconnect loop
         };
         
         ws.onerror = (error) => {
             console.error("WebSocket error:", error);
         };
-    }
-    
-    // Update getCurrentUserId to handle username correctly
-    function getCurrentUserId() {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return {
-                username: payload.sub,
-                email: payload.email || ''
-            };
-        } catch (error) {
-            console.error("Error decoding token:", error);
-            return { username: null, email: null };
-        }
-    }
-
-    // Функция для хеширования строки и получения числового ID
-    function hashString(str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32bit integer
-        }
-        return Math.abs(hash); // Возвращаем положительное число
     }
 
     async function loadMessages() {
@@ -363,15 +333,15 @@ document.addEventListener('DOMContentLoaded', function() {
             messageContainer.innerHTML = "";
             displayedMessages.clear();
     
-            const currentUser = getCurrentUserId();
+            const currentUserId = getCurrentUserId();
             
             messages.forEach(msg => {
-                const isOutgoing = msg.sender_username === currentUser.username;
+                const isOutgoing = msg.sender_id === currentUserId;
                 displayMessage(
                     msg.id,
                     msg.content,
                     msg.sender_username,
-                    isOutgoing ? '/static/images/avatar.png' : '/static/images/avatar.png',
+                    isOutgoing ? currentUser.avatar : currentContactAvatar,
                     isOutgoing,
                     msg.timestamp,
                     "message"
@@ -387,7 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const content = messageInput.value.trim();
         
         // Проверяем, выбран ли контакт
-        if (!currentChatId || !currentContactUsername) {
+        if (!currentChatId) {
             console.log("No contact selected");
             return;
         }
@@ -447,20 +417,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 uploadedMedia.push(...uploadResult.files);
             }
             
-            // Формируем текст сообщения с метками для медиа
-            let content = message || '';
-            
-            // Добавляем метки медиа к сообщению
-            if (uploadedMedia.length > 0) {
-                content += uploadedMedia.map(file => ` [Media: ${file}]`).join('');
-            }
-            
-            // Отправляем сообщение через WebSocket
+            // Новая логика отправки через WebSocket
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    content: content,
-                    type: "message"
-                }));
+                if (uploadedMedia.length > 0) {
+                    if (uploadedMedia.length === 1) {
+                        const mediaTag = ` [Media: ${uploadedMedia[0]}]`;
+                        ws.send(JSON.stringify({ content: (message || '') + mediaTag, type: "message" }));
+                    } else {
+                        uploadedMedia.forEach((file, index) => {
+                            const mediaTag = ` [Media: ${file}]`;
+                            const contentForThis = index === uploadedMedia.length - 1 ? (message || '') + mediaTag : mediaTag;
+                            ws.send(JSON.stringify({ content: contentForThis, type: "message" }));
+                        });
+                    }
+                } else if (message) {
+                    ws.send(JSON.stringify({ content: message, type: "message" }));
+                }
             } else {
                 console.error("WebSocket is not open, cannot send message");
                 showNotification("Ошибка соединения. Пожалуйста, обновите страницу.");
@@ -697,7 +669,6 @@ document.addEventListener('DOMContentLoaded', function() {
     addGroupContainer.addEventListener('click', function(e) {
         if (e.target === addGroupContainer) {
             addGroupContainer.classList.add('hidden');
-            newGroupNameInput.value = '';
         }
     });
 
@@ -719,14 +690,37 @@ document.addEventListener('DOMContentLoaded', function() {
         editProfileContainer.classList.add('hidden');
     });
 
-    saveProfileBtn.addEventListener('click', function() {
+    // В обработчике сохранения профиля корректно перезаписываем token:
+    saveProfileBtn.addEventListener('click', async function() {
         const username = editUsernameInput.value.trim();
-        const email = editEmailInput.value.trim();
+        const email    = editEmailInput.value.trim();
         const password = editPasswordInput.value.trim();
-        if (username && email) {
-            document.querySelector('.profile-info h3').textContent = username;
-            document.querySelector('.profile-info p').textContent = email;
+        if (!username || !email) return showNotification("Заполните все поля");
+
+        try {
+            const res = await fetch('/user/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ username, email, password })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || res.statusText);
+
+            // Обновляем UI
+            document.querySelector('.profile-info h3').textContent = data.username;
+            document.querySelector('.profile-info p').textContent = data.email;
             editProfileContainer.classList.add('hidden');
+
+            // Сохраняем новый токен и перезагружаем контакты
+            localStorage.setItem('token', data.token);
+            token = data.token;   // теперь работает без ошибки
+            showNotification('Профиль обновлён, токен обновлён');
+            await loadContacts();
+        } catch (e) {
+            showNotification('Ошибка обновления профиля: ' + e.message);
         }
     });
 
