@@ -860,19 +860,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.addEventListener('click', function(e) {
-        const mediaImg = e.target.closest('.message-media img, .message-media video');
-        if (mediaImg) {
-            const mediaUrl = mediaImg.src || mediaImg.currentSrc;
-            const isVideo = mediaImg.tagName.toLowerCase() === 'video';
+        const mediaEl = e.target.closest('img.message-media, video.message-media');
+        if (mediaEl) {
+            const mediaUrl = mediaEl.src || mediaEl.currentSrc;
+            const isVideo = mediaEl.tagName.toLowerCase() === 'video';
             if (isVideo) {
                 lightboxContent.innerHTML = `<video src="${mediaUrl}" controls autoplay></video>`;
                 downloadMediaBtn.setAttribute('data-src', mediaUrl);
                 downloadMediaBtn.setAttribute('data-filename', 'video_' + new Date().getTime() + '.mp4');
             } else {
                 lightboxContent.innerHTML = `<img src="${mediaUrl}" alt="Full size image">`;
-            downloadMediaBtn.setAttribute('data-src', mediaUrl);
-            downloadMediaBtn.setAttribute('data-filename', 'image_' + new Date().getTime() + '.jpg');
-        }
+                downloadMediaBtn.setAttribute('data-src', mediaUrl);
+                downloadMediaBtn.setAttribute('data-filename', 'image_' + new Date().getTime() + '.jpg');
+            }
             mediaLightbox.classList.remove('hidden');
         }
     });
