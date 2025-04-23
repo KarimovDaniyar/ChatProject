@@ -316,13 +316,14 @@ async def add_contacts_route(contacts_to_add: ContactsAdd, user: dict = Depends(
               # Assume they might already be contacts or another issue occurred
               raise HTTPException(status_code=400, detail="Could not add contacts. They might already exist or IDs are invalid.")
 
-# Новый эндпоинт для поиска пользователей
+# Новый эндпоинт для поиска пользователей@app.get("/users/search")
 @app.get("/users/search")
 async def search_users_route(query: str = Query(..., min_length=1), user: dict = Depends(get_current_user)):
-    if not query:
-        return []
     found_users = search_users(query, user["id"])
+    if not found_users:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
     return found_users
+
 
 @app.get("/messages/{chat_id}")
 async def list_messages(chat_id: int, user: dict = Depends(get_current_user)):

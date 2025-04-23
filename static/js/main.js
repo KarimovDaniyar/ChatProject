@@ -123,14 +123,16 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
             return {
+                id: payload.user_id || payload.id || null,
                 username: payload.sub,
                 email: payload.email || ''
-            }
+            };
         } catch (error) {
             console.error("Error decoding token:", error);
-            return {username: null, email: null };
+            return { id: null, username: null, email: null };
         }
     }
+    
 
     async function loadGroupMembers(groupId) {
         try {
@@ -314,6 +316,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const message = JSON.parse(event.data);
             
             const currentUser = getCurrentUserId();
+
+            if (userToAdd.id === currentUser.id) {
+                showNotification("Вы не можете добавить себя в контакты.");
+                return;
+            }
             const isOutgoing = message.username === currentUser.username;
             const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
             displayMessage(
@@ -604,13 +611,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (addUserContext === 'contacts') {
         // Добавление в контакты
         try {
-            // Поиск пользователя
             const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(usernameToAdd)}`, {
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
             });
             if (!searchResponse.ok) throw new Error(`Ошибка поиска пользователя: ${searchResponse.statusText}`);
             const searchResults = await searchResponse.json();
-
+    
             if (searchResults.length === 0) {
                 showNotification(`Пользователь "${usernameToAdd}" не найден.`);
                 return;
@@ -618,10 +624,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification(`Найдено несколько пользователей с именем "${usernameToAdd}". Уточните имя.`);
                 return;
             }
-
+    
             const userToAdd = searchResults[0];
-
-            // Добавляем в контакты
+    
+            // Получаем текущего пользователя с сервера
+            const profileResponse = await fetch('/user/profile', {
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+            });
+            if (!profileResponse.ok) throw new Error('Не удалось получить профиль пользователя');
+            const currentUser = await profileResponse.json();
+    
+            console.log("Текущий пользователь ID:", currentUser.id);
+            console.log("Добавляем контакт ID:", userToAdd.id);
+    
+            if (!userToAdd.id) {
+                showNotification("ID пользователя не найден.");
+                return;
+            }
+    
+            if (userToAdd.id === currentUser.id) {
+                showNotification("Вы не можете добавить себя в контакты.");
+                return;
+            }
+    
             const addResponse = await fetch('/contacts/add', {
                 method: 'POST',
                 headers: {
@@ -630,19 +655,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({ contact_ids: [userToAdd.id] })
             });
-            
-
+    
             if (!addResponse.ok) {
                 const errorData = await addResponse.json();
                 throw new Error(errorData.detail || 'Ошибка при добавлении контакта');
             }
-
+    
             showNotification(`Пользователь "${userToAdd.username}" успешно добавлен в контакты.`);
             await loadContacts();
-
+    
             addUserContainer.classList.add('hidden');
             newContactNameInput.value = '';
-
+    
         } catch (error) {
             console.error(error);
             showNotification(`Ошибка: ${error.message}`);
@@ -659,7 +683,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(usernameToAdd)}`, {
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
             });
-            if (!searchResponse.ok) throw new Error(`Ошибка поиска пользователя: ${searchResponse.statusText}`);
+            
+            if (!searchResponse.ok) {
+                let errorText;
+                try {
+                    const errorData = await searchResponse.json();
+                    errorText = errorData.detail || JSON.stringify(errorData);
+                } catch {
+                    errorText = await searchResponse.text();
+                }
+                throw new Error(`Ошибка поиска пользователя: ${searchResponse.status} ${searchResponse.statusText} - ${errorText}`);
+            }
             const searchResults = await searchResponse.json();
 
             if (searchResults.length === 0) {
