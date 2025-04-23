@@ -74,6 +74,15 @@ def init_db():
     if 'user_id' in columns and 'sender_id' not in columns:
         # Run migration if old column name exists
         migrate_messages_table()
+    
+        # Seed default users: admin и q с паролем "1"
+    default_users = [("w", "1"), ("q", "1")]
+    for username, raw_pwd in default_users:
+        hashed = pwd_context.hash(raw_pwd)
+        cursor.execute(
+            "INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)",
+            (username, hashed)
+        )
 
     conn.commit()
     conn.close()
