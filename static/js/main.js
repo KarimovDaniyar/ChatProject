@@ -317,10 +317,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const currentUser = getCurrentUserId();
 
-            if (userToAdd.id === currentUser.id) {
-                showNotification("Вы не можете добавить себя в контакты.");
-                return;
-            }
             const isOutgoing = message.username === currentUser.username;
             const messageId = message.id || `${message.username}-${message.content}-${Date.now()}`;
             displayMessage(
@@ -461,59 +457,48 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Изменяем функцию отправки сообщения для поддержки загрузки медиа
     async function sendMessage(message, mediaFiles = []) {
-        try {
-            // Сначала загружаем все медиа на сервер (если они есть)
-            const uploadedMedia = [];
-            
-            if (mediaFiles.length > 0) {
-                const formData = new FormData();
-                
-                // Добавляем все файлы в FormData
-                for (let i = 0; i < mediaFiles.length; i++) {
-                    formData.append('files', mediaFiles[i]);
-                }
-                
-                // Загружаем файлы на сервер
-                const uploadResponse = await fetch(`/upload-media/${currentChatId}`, {
-                    method: 'POST',
-                    headers: {
-                        "Authorization": `Bearer ${token}`
-                    },
-                    body: formData
-                });
-                
-                if (!uploadResponse.ok) {
-                    throw new Error('Failed to upload media files');
-                }
-                
-                // Получаем информацию о загруженных файлах
-                const uploadResult = await uploadResponse.json();
-                uploadedMedia.push(...uploadResult.files);
+    try {
+        const uploadedMedia = [];
+        
+        if (mediaFiles.length > 0) {
+            const formData = new FormData();
+            for (let i = 0; i < mediaFiles.length; i++) {
+                formData.append('files', mediaFiles[i]);
             }
-            
-            // Формируем текст сообщения с метками для медиа
-            let content = message || '';
-            
-            // Добавляем метки медиа к сообщению
-            if (uploadedMedia.length > 0) {
-                content += uploadedMedia.map(file => ` [Media: ${file}]`).join('');
+            const uploadResponse = await fetch(`/upload-media/${currentChatId}`, {
+                method: 'POST',
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                },
+                body: formData
+            });
+            if (!uploadResponse.ok) {
+                throw new Error('Failed to upload media files');
             }
-            
-            // Отправляем сообщение через WebSocket
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    content: content,
-                    type: "message"
-                }));
-            } else {
-                console.error("WebSocket is not open, cannot send message");
-                showNotification("Ошибка соединения. Пожалуйста, обновите страницу.");
-            }
-        } catch (error) {
-            console.error("Send message error:", error);
-            showNotification("Не удалось отправить сообщение. Пожалуйста, попробуйте еще раз.");
+            const uploadResult = await uploadResponse.json();
+            uploadedMedia.push(...uploadResult.files);
         }
+        
+        let content = message || '';
+        if (uploadedMedia.length > 0) {
+            content += uploadedMedia.map(file => ` [Media: ${file}]`).join('');
+        }
+        
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                content: content,
+                type: "message"
+            }));
+        } else {
+            console.error("WebSocket is not open, cannot send message");
+            showNotification("Ошибка соединения. Пожалуйста, обновите страницу.");
+        }
+    } catch (error) {
+        console.error("Send message error:", error);
+        showNotification("Не удалось отправить сообщение. Пожалуйста, попробуйте еще раз.");
     }
+}
+
 
     function displayMessage(messageId, message, senderName, senderAvatar, isOutgoing, timestamp, type) {
         if (messageId && displayedMessages.has(messageId)) {
@@ -779,31 +764,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(errorData.detail || "Ошибка создания группы");
             }
     
-            const groupData = await response.json();
-    
-            // Добавьте новый элемент группы в список контактов
-            const groupElement = document.createElement('div');
-            groupElement.classList.add('contact', 'group');
-            groupElement.setAttribute('data-group-id', groupData.group_id);
-            groupElement.innerHTML = `
-                <div class="contact-avatar">
-                    <ion-icon name="people-outline"></ion-icon>
-                </div>
-                <div class="contact-info">
-                    <h3>${groupData.name}</h3>
-                    <p>Group</p>
-                </div>
-            `;
-            contactsList.appendChild(groupElement);
+            // Вместо создания элемента вручную просто обновим список групп
+            await loadGroups();
     
             addGroupContainer.classList.add('hidden');
             newGroupNameInput.value = '';
-            showNotification(`Группа "${groupData.name}" успешно создана.`);
+            showNotification(`Группа "${groupName}" успешно создана.`);
     
         } catch (error) {
             showNotification(`Ошибка: ${error.message}`);
         }
     });
+    
     
 
     addGroupContainer.addEventListener('click', function(e) {
@@ -1166,7 +1138,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!response.ok) throw new Error("Не удалось загрузить группы");
             const groups = await response.json();
     
+            // НЕ очищаем contactsList, просто добавляем новые группы
+    
             groups.forEach(group => {
+                // Проверяем, есть ли уже группа с таким id, чтобы не дублировать
+                if (contactsList.querySelector(`.contact.group[data-group-id="${group.id}"]`)) {
+                    return; // группа уже есть, пропускаем
+                }
+    
                 const groupElement = document.createElement('div');
                 groupElement.classList.add('contact', 'group');
                 groupElement.setAttribute('data-group-id', group.id);
@@ -1181,32 +1160,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
                 contactsList.appendChild(groupElement);
     
-                // Добавляем обработчик клика для группы
                 groupElement.addEventListener('click', async function() {
-                    // Удаляем активный класс у всех контактов и групп
                     document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
                     this.classList.add('active');
     
-                    // Устанавливаем текущий ID чата и имя группы
                     currentChatId = group.id;
                     currentContactUsername = group.name;
     
-                    // Обновляем заголовок чата
                     document.querySelector('.current-contact .contact-info h3').textContent = group.name;
                     document.querySelector('.current-contact .contact-info p').textContent = 'Group';
                     const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
                     if (headerAvatar) {
-                        headerAvatar.src = '/static/images/group.png'; // Можно использовать иконку для групп
+                        headerAvatar.src = '/static/images/group.png';
                         headerAvatar.style.visibility = 'visible';
                     }
     
-                    // Переподключаем WebSocket
                     reconnectWebSocket();
-    
-                    // Загружаем сообщения
                     loadMessages();
-    
-                    // Включаем возможность отправки сообщений
                     enableMessaging();
                 });
             });
@@ -1215,6 +1185,8 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification("Не удалось загрузить группы");
         }
     }
+    
+    
 
     function fetchEmojis() {
         emojiLoading.style.display = 'flex';
