@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
+    let addUserContext = 'contacts';
+
     let currentChatId = null; // Добавьте эту переменную
     let currentContactAvatar = null; // Для хранения аватара текущего контакта
     const messageContainer = document.querySelector("#message-container");
@@ -44,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const addGroupContainer = document.getElementById('add-group-container');
     const cancelAddGroup = document.getElementById('cancel-add-group');
     const addGroupBtn = document.getElementById('add-group-btn');
-    const newGroupNameInput = document.getElementById('new-contact-name');
+    const newGroupNameInput = document.getElementById('new-group-name');
     const editProfileButton = document.getElementById('edit-profile');
     const editProfileContainer = document.getElementById('edit-profile-container');
     const cancelEditProfile = document.getElementById('cancel-edit-profile');
@@ -54,6 +56,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const editPasswordInput = document.getElementById('edit-password');
     const userMenuBtn = document.getElementById('user-menu-btn');
     const userMenu = document.getElementById('user-menu');
+    const groupUserMenu = document.getElementById('group-user-menu');
+
+    const usersList = document.getElementById('users-list');
+    const addGroupMemberBtn = document.getElementById('add-group-member-btn');
+    const leaveGroupBtn = document.getElementById('leave-group-btn');
 
     // Disable message input and buttons on initial load
     disableMessaging();
@@ -122,6 +129,37 @@ document.addEventListener('DOMContentLoaded', function() {
             return null;
         }
     }
+    
+
+    async function loadGroupMembers(groupId) {
+        try {
+            const response = await fetch(`/groups/${groupId}/members`, {
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to load group members: ${response.statusText}`);
+            }
+            const members = await response.json();
+    
+            usersList.innerHTML = ''; // Очистить список перед добавлением
+    
+            if (members.length === 0) {
+                usersList.innerHTML = '<div style="padding: 10px; color: #ccc;">No members in this group</div>';
+                return;
+            }
+    
+            members.forEach(member => {
+                const div = document.createElement('div');
+                div.classList.add('user-item');
+                div.textContent = member.username;
+                usersList.appendChild(div);
+            });
+        } catch (error) {
+            console.error(error);
+            usersList.innerHTML = '<div style="padding: 10px; color: red;">Failed to load members</div>';
+        }
+    }
+    
 
     async function loadUserProfile() {
         try {
@@ -250,6 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error("Error loading contacts:", error);
         }
+        await loadGroups();
     }
     
     // Update reconnectWebSocket to use currentChatId
@@ -521,7 +560,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    addUserButton.addEventListener('click', function() {
+    addUserButton.addEventListener('click', () => {
+        addUserContext = 'contacts';
         addUserContainer.classList.remove('hidden');
         newContactNameInput.focus();
         menu.classList.remove('active');
@@ -529,6 +569,7 @@ document.addEventListener('DOMContentLoaded', function() {
             menu.classList.add('hidden');
         }, 300);
     });
+    
 
     cancelAddContact.addEventListener('click', function() {
         addUserContainer.classList.add('hidden');
@@ -536,74 +577,140 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Обновление функционала добавления контакта
-    addContactBtn.addEventListener('click', async function() {
-        const contactName = newContactNameInput.value.trim();
-        if (contactName) {
-            try {
-                // 1. Search for the user by exact username
-                const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(contactName)}`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
+    addContactBtn.addEventListener('click', async () => {
+    const usernameToAdd = newContactNameInput.value.trim();
+    if (!usernameToAdd) {
+        showNotification("Введите имя пользователя для добавления.");
+        return;
+    }
 
-                if (!searchResponse.ok) {
-                    throw new Error(`Search failed: ${searchResponse.statusText}`);
-                }
-
-                const searchResults = await searchResponse.json();
-
-                if (searchResults.length === 1) {
-                    // 2. If exactly one user is found, get their ID
-                    const contactId = searchResults[0].id;
-
-                    // 3. Call the endpoint to add the contact by ID
-                    const addResponse = await fetch('/contacts/add', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            "Authorization": `Bearer ${token}`
-                        },
-                        body: JSON.stringify({ contact_ids: [contactId] })
-                    });
-
-                    if (!addResponse.ok) {
-                         const errorData = await addResponse.json();
-                         throw new Error(errorData.detail || `Failed to add contact: ${addResponse.statusText}`);
-                    }
-
-                    // 4. Handle success
-                    showNotification(`Контакт "${contactName}" успешно добавлен.`);
-                    await loadContacts(); // Reload the contact list
-                    addUserContainer.classList.add('hidden');
-                    newContactNameInput.value = '';
-
-                } else if (searchResults.length === 0) {
-                    showNotification(`Пользователь с именем "${contactName}" не найден.`);
-                } else {
-                    // Should not happen with the modified search, but handle just in case
-                    showNotification(`Найдено несколько пользователей с именем "${contactName}". Уточните имя.`);
-                }
-
-            } catch (error) {
-                console.error("Error adding contact:", error);
-                showNotification(`Ошибка при добавлении контакта: ${error.message}`);
-            } finally {
-                 // Ensure the input is cleared even if there was an error after finding the user
-                 // but before successfully adding. Keep modal open on error for correction.
-                 if (!addUserContainer.classList.contains('hidden') && searchResults && searchResults.length !== 1) {
-                     // Keep modal open if user not found or multiple found
-                 } else if (!addUserContainer.classList.contains('hidden') && !addResponse.ok) {
-                     // Keep modal open if add failed
-                 }
-                 else {
-                    // Clear input and hide modal on success or initial search failure
-                    newContactNameInput.value = '';
-                    addUserContainer.classList.add('hidden');
-                 }
+    if (addUserContext === 'contacts') {
+        // Добавление в контакты
+        try {
+            const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(usernameToAdd)}`, {
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+            });
+            if (!searchResponse.ok) throw new Error(`Ошибка поиска пользователя: ${searchResponse.statusText}`);
+            const searchResults = await searchResponse.json();
+    
+            if (searchResults.length === 0) {
+                showNotification(`Пользователь "${usernameToAdd}" не найден.`);
+                return;
+            } else if (searchResults.length > 1) {
+                showNotification(`Найдено несколько пользователей с именем "${usernameToAdd}". Уточните имя.`);
+                return;
             }
-        } else {
-            showNotification("Введите имя пользователя для добавления.");
+    
+            const userToAdd = searchResults[0];
+    
+            // Получаем текущего пользователя с сервера
+            const profileResponse = await fetch('/user/profile', {
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+            });
+            if (!profileResponse.ok) throw new Error('Не удалось получить профиль пользователя');
+            const currentUser = await profileResponse.json();
+    
+            console.log("Текущий пользователь ID:", currentUser.id);
+            console.log("Добавляем контакт ID:", userToAdd.id);
+    
+            if (!userToAdd.id) {
+                showNotification("ID пользователя не найден.");
+                return;
+            }
+    
+            if (userToAdd.id === currentUser.id) {
+                showNotification("Вы не можете добавить себя в контакты.");
+                return;
+            }
+    
+            const addResponse = await fetch('/contacts/add', {
+                method: 'POST',
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                },
+                body: JSON.stringify({ contact_ids: [userToAdd.id] })
+            });
+    
+            if (!addResponse.ok) {
+                const errorData = await addResponse.json();
+                throw new Error(errorData.detail || 'Ошибка при добавлении контакта');
+            }
+    
+            showNotification(`Пользователь "${userToAdd.username}" успешно добавлен в контакты.`);
+            await loadContacts();
+    
+            addUserContainer.classList.add('hidden');
+            newContactNameInput.value = '';
+    
+        } catch (error) {
+            console.error(error);
+            showNotification(`Ошибка: ${error.message}`);
         }
-    });
+
+    } else if (addUserContext === 'group-members') {
+        // Добавление в группу
+        if (!currentChatId) {
+            showNotification("Группа не выбрана.");
+            return;
+        }
+        try {
+            // Поиск пользователя
+            const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(usernameToAdd)}`, {
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+            });
+            
+            if (!searchResponse.ok) {
+                let errorText;
+                try {
+                    const errorData = await searchResponse.json();
+                    errorText = errorData.detail || JSON.stringify(errorData);
+                } catch {
+                    errorText = await searchResponse.text();
+                }
+                throw new Error(`Ошибка поиска пользователя: ${searchResponse.status} ${searchResponse.statusText} - ${errorText}`);
+            }
+            const searchResults = await searchResponse.json();
+
+            if (searchResults.length === 0) {
+                showNotification(`Пользователь "${usernameToAdd}" не найден.`);
+                return;
+            } else if (searchResults.length > 1) {
+                showNotification(`Найдено несколько пользователей с именем "${usernameToAdd}". Уточните имя.`);
+                return;
+            }
+
+            const userToAdd = searchResults[0];
+
+            // Добавляем в группу
+            const addResponse = await fetch(`/groups/${currentChatId}/add-members`, {
+                method: 'POST',
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                },
+                body: JSON.stringify({ user_ids: [userToAdd.id] })
+            });
+
+            if (!addResponse.ok) {
+                const errorData = await addResponse.json();
+                throw new Error(errorData.detail || 'Ошибка при добавлении участника');
+            }
+
+            showNotification(`Пользователь "${userToAdd.username}" успешно добавлен в группу.`);
+            await loadGroupMembers(currentChatId);
+
+            addUserContainer.classList.add('hidden');
+            newContactNameInput.value = '';
+
+        } catch (error) {
+            console.error(error);
+            showNotification(`Ошибка: ${error.message}`);
+        }
+    }
+});
+
+    
 
     addUserContainer.addEventListener('click', function(e) {
         if (e.target === addUserContainer) {
@@ -626,13 +733,41 @@ document.addEventListener('DOMContentLoaded', function() {
         newGroupNameInput.value = '';
     });
 
-    addGroupBtn.addEventListener('click', function() {
+    addGroupBtn.addEventListener('click', async function() {
         const groupName = newGroupNameInput.value.trim();
-        if (groupName) {
+        if (!groupName) {
+            showNotification("Введите название группы.");
+            return;
+        }
+    
+        try {
+            const response = await fetch("/groups/create", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ name: groupName })
+            });
+    
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Ошибка создания группы");
+            }
+    
+            // Вместо создания элемента вручную просто обновим список групп
+            await loadGroups();
+    
             addGroupContainer.classList.add('hidden');
             newGroupNameInput.value = '';
+            showNotification(`Группа "${groupName}" успешно создана.`);
+    
+        } catch (error) {
+            showNotification(`Ошибка: ${error.message}`);
         }
     });
+    
+    
 
     addGroupContainer.addEventListener('click', function(e) {
         if (e.target === addGroupContainer) {
@@ -698,21 +833,103 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    userMenuBtn.addEventListener('click', function() {
-        userMenu.classList.toggle('hidden');
-        userMenu.classList.toggle('active');
-        document.addEventListener('click', handleOutsideClickUserMenu);
+    userMenuBtn.addEventListener('click', function(event) {
+        event.stopPropagation();
+        if (!currentChatId) return;
+    
+        const activeContact = document.querySelector('.contact.active');
+        const isGroupChat = activeContact && activeContact.classList.contains('group');
+    
+        userMenu.classList.add('hidden');
+        userMenu.classList.remove('active');
+        groupUserMenu.classList.add('hidden');
+        groupUserMenu.classList.remove('active');
+    
+        if (isGroupChat) {
+            groupUserMenu.classList.remove('hidden');
+            setTimeout(() => {
+                groupUserMenu.classList.add('active');
+            }, 10);
+    
+            // Загрузить участников группы
+            loadGroupMembers(currentChatId);
+        } else {
+            userMenu.classList.remove('hidden');
+            setTimeout(() => {
+                userMenu.classList.add('active');
+            }, 10);
+        }
+    
+        document.addEventListener('click', handleOutsideClickMenu);
+    });
+    
+
+
+    addGroupMemberBtn.addEventListener('click', () => {
+        addUserContext = 'group-members';
+        addUserContainer.classList.remove('hidden');
+        newContactNameInput.focus();
+    
+        groupUserMenu.classList.remove('active');
+        setTimeout(() => {
+            groupUserMenu.classList.add('hidden');
+        }, 300);
+    });
+    
+    
+    leaveGroupBtn.addEventListener('click', async () => {
+        if (!currentChatId) return;
+    
+        try {
+            const response = await fetch(`/groups/${currentChatId}/leave`, {
+                method: 'POST',
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Ошибка выхода из группы');
+            }
+            showNotification('Вы вышли из группы');
+    
+            // Обновляем список контактов и групп
+            await loadContacts();
+    
+            // Сбрасываем текущий чат
+            currentChatId = null;
+            currentContactUsername = null;
+            messageContainer.innerHTML = '';
+            disableMessaging();
+    
+            // Закрываем меню
+            groupUserMenu.classList.remove('active');
+            setTimeout(() => {
+                groupUserMenu.classList.add('hidden');
+            }, 300);
+        } catch (error) {
+            showNotification(`Ошибка: ${error.message}`);
+        }
     });
 
-    function handleOutsideClickUserMenu(event) {
-        if (!userMenu.contains(event.target) && !userMenuBtn.contains(event.target)) {
+    function handleOutsideClickMenu(event) {
+        const target = event.target;
+        if (
+            !userMenu.contains(target) &&
+            !groupUserMenu.contains(target) &&
+            !userMenuBtn.contains(target)
+        ) {
             userMenu.classList.remove('active');
+            groupUserMenu.classList.remove('active');
             setTimeout(() => {
                 userMenu.classList.add('hidden');
+                groupUserMenu.classList.add('hidden');
             }, 300);
-            document.removeEventListener('click', handleOutsideClickUserMenu);
+            document.removeEventListener('click', handleOutsideClickMenu);
         }
     }
+    
+    
 
     const clearHistoryBtn = userMenu.querySelector('.clear-btn');
     const deleteChatBtn = userMenu.querySelector('.delete-btn');
@@ -923,6 +1140,66 @@ document.addEventListener('DOMContentLoaded', function() {
             emojiPickerContainer.classList.add('hidden');
         }
     });
+
+    async function loadGroups() {
+        try {
+            const response = await fetch("/user/groups", {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            if (!response.ok) throw new Error("Не удалось загрузить группы");
+            const groups = await response.json();
+    
+            // НЕ очищаем contactsList, просто добавляем новые группы
+    
+            groups.forEach(group => {
+                // Проверяем, есть ли уже группа с таким id, чтобы не дублировать
+                if (contactsList.querySelector(`.contact.group[data-group-id="${group.id}"]`)) {
+                    return; // группа уже есть, пропускаем
+                }
+    
+                const groupElement = document.createElement('div');
+                groupElement.classList.add('contact', 'group');
+                groupElement.setAttribute('data-group-id', group.id);
+                groupElement.innerHTML = `
+                    <div class="contact-avatar">
+                        <ion-icon name="people-outline"></ion-icon>
+                    </div>
+                    <div class="contact-info">
+                        <h3>${group.name}</h3>
+                        <p>Group</p>
+                    </div>
+                `;
+                contactsList.appendChild(groupElement);
+    
+                groupElement.addEventListener('click', async function() {
+                    document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+    
+                    currentChatId = group.id;
+                    currentContactUsername = group.name;
+    
+                    document.querySelector('.current-contact .contact-info h3').textContent = group.name;
+                    document.querySelector('.current-contact .contact-info p').textContent = 'Group';
+                    const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
+                    if (headerAvatar) {
+                        headerAvatar.src = '/static/images/group.png';
+                        headerAvatar.style.visibility = 'visible';
+                    }
+    
+                    reconnectWebSocket();
+                    loadMessages();
+                    enableMessaging();
+                });
+            });
+        } catch (error) {
+            console.error("Ошибка загрузки групп:", error);
+            showNotification("Не удалось загрузить группы");
+        }
+    }
+    
+    
 
     function fetchEmojis() {
         emojiLoading.style.display = 'flex';

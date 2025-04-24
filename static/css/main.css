@@ -774,6 +774,73 @@ body {
     background-color: rgba(24, 47, 67, 1);
 }
 
+.group-user-menu {
+    position: absolute;
+    top: 67px; /* Подстройте под высоту кнопки */
+    right: 5px;
+    width: 220px;
+    background-color: rgba(24, 47, 67, 1);
+    z-index: 1000;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 8px 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease;
+}
+
+.group-user-menu.hidden {
+    display: none;
+}
+
+.group-user-menu button {
+    display: flex;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    align-items: center;
+    gap: 10px;
+}
+
+.group-user-menu button:hover {
+    background-color: rgba(60, 90, 115, 0.95);
+}
+
+.user-menu-icon {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* Стили для списка пользователей */
+#users-list {
+    max-height: 180px;
+    overflow-y: auto;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    padding: 8px 12px;
+    color: white;
+    font-size: 14px;
+}
+
+/* Элемент пользователя в списке */
+#users-list .user-item {
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: default;
+}
+
+#users-list .user-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+
+
+
 .user-menu {
     position: absolute;
     top: 67px;
