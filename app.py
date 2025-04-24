@@ -2,7 +2,7 @@ import os
 import random
 import secrets
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form, Path
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -83,18 +83,61 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-class ForgotPasswordRequest(BaseModel):
-    email: str
+# Проверка токена для WebSocket
+async def get_current_user_ws(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(1008, "Missing token")
+        raise WebSocketDisconnect()
+    payload = decode_access_token(token)
+    if payload is None:
+        await websocket.close(1008, "Invalid token")
+        raise WebSocketDisconnect()
+    user_id = payload.get("user_id")
+    if not user_id:
+        await websocket.close(1008, "Invalid token")
+        raise WebSocketDisconnect()
+    user = get_user('id', user_id)
+    if not user:
+        await websocket.close(1008, "User not found")
+        raise WebSocketDisconnect()
+    return user
 
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
+class NotificationManager:
+    def __init__(self):
+        # ключ = user_id, значение = список WebSocket
+        self.active: Dict[int, List[WebSocket]] = {}
 
-class GroupCreate(BaseModel):
-    name: str
+    async def connect(self, ws: WebSocket, user_id: int):
+        await ws.accept()
+        self.active.setdefault(user_id, []).append(ws)
 
-class GroupAddMembers(BaseModel):
-    user_ids: List[int]
+    def disconnect(self, ws: WebSocket, user_id: int):
+        conns = self.active.get(user_id, [])
+        if ws in conns:
+            conns.remove(ws)
+        if not conns:
+            self.active.pop(user_id, None)
+
+    async def send(self, user_id: int, message: dict):
+        for ws in list(self.active.get(user_id, [])):
+            try:
+                await ws.send_json(message)
+            except WebSocketDisconnect:
+                self.disconnect(ws, user_id)
+
+notif_manager = NotificationManager()
+
+@app.websocket("/ws/notifications")
+async def notifications_ws(websocket: WebSocket, user: dict = Depends(get_current_user_ws)):
+    uid = user["id"]
+    await notif_manager.connect(websocket, uid)
+    try:
+        # держим соединение открытым
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        notif_manager.disconnect(websocket, uid)
 
 # Модели для входа и регистрации
 class UserCreate(BaseModel):
@@ -126,49 +169,54 @@ class ResendCode(BaseModel):
     email: EmailStr
     temp_token: str
 
+# Модель для запроса восстановления пароля
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+# Модель для запроса сброса пароля
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+# Модель для обновления профиля
+class UserUpdate(BaseModel):
+    username: Optional[str]
+    email: Optional[EmailStr]
+    password: Optional[str]
+
 # Словарь для хранения временных кодов верификации
+class GroupCreate(BaseModel):
+    name: str
+
+class GroupAddMembers(BaseModel):
+    user_ids: List[int]
 verification_codes = {}
 temp_users = {}
 
 # Получение текущего пользователя из токена (для заголовков)
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    username = payload.get("sub")
-    user = get_user('username', username)
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(401, "Invalid token")
+    user = get_user('id', user_id)
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(401, "User not found")
     return user
 
 # Получение текущего пользователя из параметра token (для маршрута /chat)
 async def get_current_user_from_query(token: Optional[str] = Query(None)):
     if not token:
-        raise HTTPException(status_code=401, detail="Token missing")
+        raise HTTPException(401, "Token missing")
     payload = decode_access_token(token)
-    if not payload:
+    if payload is None:
         raise HTTPException(status_code=401, detail="Invalid token")
-    username = payload.get("sub")
-    user = get_user('username', username)
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(401, "Invalid token")
+    user = get_user("id", user_id)
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
-
-# Проверка токена для WebSocket
-async def get_current_user_ws(websocket: WebSocket):
-    token = websocket.query_params.get("token")
-    if not token:
-        await websocket.close(code=1008, reason="Missing token")
-        raise WebSocketDisconnect("Missing token")
-    payload = decode_access_token(token)
-    if not payload:
-        await websocket.close(code=1008, reason="Invalid token")
-        raise WebSocketDisconnect("Invalid token")
-    username = payload.get("sub")
-    user = get_user('username', username)
-    if not user:
-        await websocket.close(code=1008, reason="User not found")
-        raise WebSocketDisconnect("User not found")
+        raise HTTPException(401, "User not found")
     return user
 
 # Маршруты
@@ -253,7 +301,7 @@ async def verify_email(verification: EmailVerification):
     del temp_users[verification.temp_token]
     
     # Создаем токен доступа
-    access_token = create_access_token(data={"sub": user_data["username"]})
+    access_token = create_access_token(data={"user_id": new_user["id"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/resend-code")
@@ -273,10 +321,10 @@ async def resend_verification_code(resend: ResendCode):
 
 @app.post("/login")
 async def login(user: UserLogin):
-    db_user = get_user('username', user.username)
+    db_user = get_user("username", user.username)
     if not db_user or not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_access_token(data={"user_id": db_user["id"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/logout")
@@ -298,23 +346,18 @@ async def read_contacts(user: dict = Depends(get_current_user)):
 @app.post("/contacts/add")
 async def add_contacts_route(contacts_to_add: ContactsAdd, user: dict = Depends(get_current_user)):
     current_user_id = user["id"]
-    added_count = 0
-    for contact_id in contacts_to_add.contact_ids:
-        if contact_id != current_user_id: # Нельзя добавить себя
-            if add_contact(current_user_id, contact_id):
-                added_count += 1
-    if added_count > 0:
-         # Return the updated list of contacts
-         updated_contacts = get_contacts(current_user_id)
-         return {"status": f"{added_count} contacts added successfully.", "contacts": updated_contacts}
-    else:
-         # Handle cases where no contacts were added (e.g., all IDs were self or already contacts)
-         # Check if the list was empty or contained only self
-         if not contacts_to_add.contact_ids or all(cid == current_user_id for cid in contacts_to_add.contact_ids):
-              raise HTTPException(status_code=400, detail="No valid contact IDs provided.")
-         else:
-              # Assume they might already be contacts or another issue occurred
-              raise HTTPException(status_code=400, detail="Could not add contacts. They might already exist or IDs are invalid.")
+    added = []
+    for cid in contacts_to_add.contact_ids:
+        if cid != current_user_id and add_contact(current_user_id, cid):
+            added.append(cid)
+    if added:
+        # обновляем список на стороне A
+        await notif_manager.send(current_user_id, {"type":"contacts_update"})
+        # и на стороне B
+        for cid in added:
+            await notif_manager.send(cid, {"type":"contacts_update"})
+        return {"status": f"{len(added)} contacts added", "contacts": get_contacts(current_user_id)}
+    raise HTTPException(400, "Could not add contacts…")
 
 # Новый эндпоинт для поиска пользователей@app.get("/users/search")
 @app.get("/users/search")
@@ -356,8 +399,6 @@ async def upload_media(chat_id: int, files: List[UploadFile] = File(...), user: 
     return {"files": uploaded_files}
 
 # New endpoint to get or create a one-on-one chat
-from fastapi import HTTPException
-
 @app.get("/chat/one-on-one/{contact_id}")
 async def get_one_on_one_chat(contact_id: int, user: dict = Depends(get_current_user)):
     # Verify contact_id exists
@@ -411,7 +452,7 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
                 conn = get_db()
                 cursor = conn.cursor()
                 cursor.execute('''
-                    SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, u.username
+                    SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, u.username AS sender_username
                     FROM messages m
                     JOIN users u ON m.sender_id = u.id
                     WHERE m.id = ?
@@ -423,7 +464,8 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
                     "id": message_id,
                     "sender_id": message["sender_id"],
                     "receiver_id": message["receiver_id"],
-                    "username": message["username"],
+                    "username": message["sender_username"],  # for contact status lookup
+                    "sender_username": message["sender_username"],  # ensure frontend displayMessage has sender_username
                     "content": content,
                     "type": "message",
                     "timestamp": datetime.utcnow().isoformat() + "Z"
@@ -464,6 +506,30 @@ async def get_user_profile(user: dict = Depends(get_current_user)):
         "id": user["id"],
         "username": user["username"],
         "email": user["email"] or ""  # Provide empty string if email is None
+    }
+
+@app.put("/user/profile")
+async def update_profile(update: UserUpdate, current: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+    # update fields
+    if update.username and update.username != current["username"]:
+        cursor.execute("UPDATE users SET username = ? WHERE id = ?", (update.username, current["id"]))
+    if update.email and update.email != (current.get("email") or ""):
+        cursor.execute("UPDATE users SET email = ? WHERE id = ?", (update.email, current["id"]))
+    if update.password:
+        from passlib.context import CryptContext
+        pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        hashed = pwd_ctx.hash(update.password)
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, current["id"]))
+    conn.commit()
+    conn.close()
+    # issue new token (username может измениться!)
+    new_token = create_access_token(data={"user_id": current["id"]})
+    return {
+        "username": update.username or current["username"],
+        "email": update.email or current.get("email",""),
+        "token": new_token
     }
 
 @app.post("/forgot-password")
