@@ -149,16 +149,29 @@ document.addEventListener('DOMContentLoaded', function() {
             }
     
             members.forEach(member => {
-                const div = document.createElement('div');
-                div.classList.add('user-item');
-                div.textContent = member.username;
-                usersList.appendChild(div);
+                const memberElement = document.createElement('div');
+                memberElement.classList.add('contact');
+                memberElement.setAttribute('data-id', member.id);
+                memberElement.innerHTML = `
+                <div class="contact-avatar">
+                    <img src="/static/images/avatar.png" alt="${member.username}">
+                </div>
+                <div class="contact-info">
+                    <h3>${member.username}</h3>
+                    <p>Offline</p>
+                </div>
+                <div class="contact-status offline"></div>
+            `;
+                usersList.appendChild(memberElement);
             });
         } catch (error) {
             console.error(error);
             usersList.innerHTML = '<div style="padding: 10px; color: red;">Failed to load members</div>';
         }
     }
+    
+    
+    
     
 
     async function loadUserProfile() {
