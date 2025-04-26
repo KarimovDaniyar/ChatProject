@@ -802,8 +802,7 @@ body {
     display: flex;
     justify-content: space-between;
     padding: 10px 16px;
-    background-color: rgb(212, 214, 201);
-    border-bottom: 1px solid rgba(34, 61, 85, 0.3);
+    background-color: rgb(255, 255, 255);
   }
   
   /* Стиль кнопок - круглые, без текста */
