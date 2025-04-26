@@ -599,18 +599,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (uploadedMedia.length === 1) {
                         const mediaTag = ` [Media: ${uploadedMedia[0]}]`;
                         const contentWithMedia = (message || '') + mediaTag;
-                        displayMessage(null, contentWithMedia, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
+                        // displayMessage(null, contentWithMedia, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
                         ws.send(JSON.stringify({ content: contentWithMedia, type: "message" }));
                     } else {
                         uploadedMedia.forEach((file, index) => {
                             const mediaTag = ` [Media: ${file}]`;
                             const contentForThis = index === uploadedMedia.length - 1 ? (message || '') + mediaTag : mediaTag;
-                            displayMessage(null, contentForThis, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
+                            // displayMessage(null, contentForThis, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
                             ws.send(JSON.stringify({ content: contentForThis, type: "message" }));
                         });
                     }
                 } else if (message) {
-                    displayMessage(null, message, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
+                    // displayMessage(null, message, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
                     ws.send(JSON.stringify({ content: message, type: "message" }));
                 }
             } else {
