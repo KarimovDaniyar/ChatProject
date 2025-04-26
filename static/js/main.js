@@ -62,6 +62,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const addGroupMemberBtn = document.getElementById('add-group-member-btn');
     const leaveGroupBtn = document.getElementById('leave-group-btn');
 
+    const editAvatarImg = document.getElementById('edit-avatar-img');
+    const editAvatarInput = document.getElementById('edit-avatar-input'); 
+    let selectedAvatarFile = null;  
+
     // Disable message input and buttons on initial load
     disableMessaging();
     
@@ -150,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
             members.forEach(member => {
                 const memberElement = document.createElement('div');
-                memberElement.classList.add('contact');
+                memberElement.classList.add('contactInGroupInfo');
                 memberElement.setAttribute('data-id', member.id);
                 memberElement.innerHTML = `
                 <div class="contact-avatar">
@@ -186,9 +190,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.querySelector('.profile-info h3').textContent = userData.username;
                 document.querySelector('.profile-info p').textContent = userData.email || '';
                 
-                // If you have profile editing functionality, also update those fields
+                // Обновляем аватар в боковом меню
+                const profileAvatarImg = document.querySelector('.profile-avatar img');
+                if (profileAvatarImg && userData.avatar) {
+                    profileAvatarImg.src = userData.avatar; // Путь уже будет /static/images/...
+                }
+    
+                // Обновляем поля редактирования профиля
                 if (editUsernameInput) editUsernameInput.value = userData.username;
                 if (editEmailInput) editEmailInput.value = userData.email || '';
+                if (editAvatarImg && userData.avatar) {
+                    editAvatarImg.src = userData.avatar; // Путь уже будет /static/images/...
+                }
+    
+                // Обновляем текущего пользователя для отображения сообщений
+                currentUser.avatar = userData.avatar || '/static/images/avatar.png';
             } else {
                 console.error("Failed to load user profile:", response.status);
             }
@@ -196,6 +212,33 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("Error loading user profile:", error);
         }
     }
+    editAvatarImg.addEventListener('click', () => {
+        editAvatarInput.click();
+    });
+    
+    // Когда пользователь выбрал файл
+    editAvatarInput.addEventListener('change', () => {
+        const file = editAvatarInput.files[0];
+        const allowedExtensions = ['png', 'jpg', 'jpeg', 'gif'];
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (file && file.type.startsWith('image/') && allowedExtensions.includes(ext)) {
+            if (file.size > maxSize) {
+                showNotification('Файл слишком большой. Максимальный размер — 5 МБ.');
+                editAvatarInput.value = '';
+                return;
+            }
+            selectedAvatarFile = file;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                editAvatarImg.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            showNotification('Пожалуйста, выберите изображение в формате PNG, JPG, JPEG или GIF.');
+            editAvatarInput.value = '';
+        }
+    });
 
     // Function to update the last message preview for a contact in the sidebar
     function updateContactPreview(contactElement) {
@@ -264,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const contacts = await response.json();
             contactsList.innerHTML = "";
-
+    
             if (contacts.length === 0) {
                 const emptyMessage = document.createElement('div');
                 emptyMessage.classList.add('empty-contacts');
@@ -277,8 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 contactsList.appendChild(emptyMessage);
                 return;
             }
-
-            // Populate contacts and fetch previews
+    
             const previewPromises = [];
             contacts.forEach(contact => {
                 const contactElement = document.createElement('div');
@@ -287,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 contactElement.setAttribute('data-id', contact.id);
                 contactElement.innerHTML = `
                     <div class="contact-avatar">
-                        <img src="/static/images/avatar.png" alt="${contact.username}">
+                        <img src="${contact.avatar || '/static/images/avatar.png'}" alt="${contact.username}">
                     </div>
                     <div class="contact-info">
                         <h3>${contact.username}</h3>
@@ -296,12 +338,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="contact-status offline"></div>
                 `;
                 contactsList.appendChild(contactElement);
-                // Prepare to fetch preview asynchronously
                 previewPromises.push(fetchAndUpdateContactPreview(contactElement, contact.id));
             });
-            // Wait until all previews are loaded before enabling interactions
             await Promise.all(previewPromises);
-
+    
             const contactElements = document.querySelectorAll('.contact');
             contactElements.forEach(contact => {
                 contact.addEventListener('click', async function() {
@@ -315,7 +355,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     currentContactAvatar = contactImg;  // store contact avatar
                     
-                    // Fetch chat_id from backend
                     try {
                         const response = await fetch(`/chat/one-on-one/${contactId}`, {
                             headers: { "Authorization": `Bearer ${token}` }
@@ -327,22 +366,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         const data = await response.json();
                         currentChatId = data.chat_id;
                         
-                        // Update chat header
                         document.querySelector('.current-contact .contact-info h3').textContent = contactName;
                         document.querySelector('.current-contact .contact-avatar img').src = contactImg;
                         
-                        // Reconnect WebSocket
                         reconnectWebSocket();
-                        
-                        // Load messages
                         loadMessages();
-                        
-                        // Enable messaging
                         enableMessaging();
                     } catch (error) {
                         console.error("Error fetching chat ID:", error);
                         showNotification(`Не удалось открыть чат: ${error.message}`);
-                        currentChatId = null; // Ensure no invalid WebSocket connection
+                        currentChatId = null;
                         disableMessaging();
                     }
                 });
@@ -928,36 +961,78 @@ document.addEventListener('DOMContentLoaded', function() {
     // В обработчике сохранения профиля корректно перезаписываем token:
     saveProfileBtn.addEventListener('click', async function() {
         const username = editUsernameInput.value.trim();
-        const email    = editEmailInput.value.trim();
+        const email = editEmailInput.value.trim();
         const password = editPasswordInput.value.trim();
+    
         if (!username || !email) return showNotification("Заполните все поля");
-
+    
         try {
+            // Если есть выбранный файл аватара, загружаем его отдельно
+            let avatarUrl = null;
+            if (selectedAvatarFile) {
+                const formData = new FormData();
+                formData.append('file', selectedAvatarFile); // Сервер ожидает поле 'file', а не 'avatar'
+    
+                const uploadResponse = await fetch('/user/upload-avatar', {
+                    method: 'POST',
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: formData
+                });
+    
+                if (!uploadResponse.ok) {
+                    const errorData = await uploadResponse.json();
+                    console.error('Upload error:', uploadResponse.status, errorData);
+                    throw new Error(`Ошибка загрузки аватара: ${errorData.detail || uploadResponse.statusText}`);
+                }
+    
+                const uploadData = await uploadResponse.json();
+                avatarUrl = uploadData.avatar_url;
+            }
+    
+            // Отправляем обновлённые данные профиля
+            const bodyData = { username, email };
+            if (password) bodyData.password = password;
+            if (avatarUrl) bodyData.avatar = avatarUrl;
+    
             const res = await fetch('/user/profile', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ username, email, password })
+                body: JSON.stringify(bodyData)
             });
+    
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || res.statusText);
-
+    
             // Обновляем UI
             document.querySelector('.profile-info h3').textContent = data.username;
             document.querySelector('.profile-info p').textContent = data.email;
+            if (data.avatar) {
+                const profileAvatarImg = document.querySelector('.profile-avatar img');
+                if (profileAvatarImg) profileAvatarImg.src = data.avatar;
+                if (editAvatarImg) editAvatarImg.src = data.avatar;
+                currentUser.avatar = data.avatar;
+            }
+    
             editProfileContainer.classList.add('hidden');
-
-            // Сохраняем новый токен и перезагружаем контакты
+    
             localStorage.setItem('token', data.token);
-            token = data.token;   // теперь работает без ошибки
+            token = data.token;
             showNotification('Профиль обновлён, токен обновлён');
             await loadContacts();
+    
+            // Сбрасываем выбранный файл
+            selectedAvatarFile = null;
+            editAvatarInput.value = '';
         } catch (e) {
             showNotification('Ошибка обновления профиля: ' + e.message);
         }
     });
+    
 
     editProfileContainer.addEventListener('click', function(e) {
         if (e.target === editProfileContainer) {
@@ -1302,7 +1377,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 groupElement.setAttribute('data-group-id', group.id);
                 groupElement.innerHTML = `
                     <div class="contact-avatar">
-                        <ion-icon name="people-outline"></ion-icon>
+                        <img src="/static/images/group.png" alt="${group.name}">
                     </div>
                     <div class="contact-info">
                         <h3>${group.name}</h3>

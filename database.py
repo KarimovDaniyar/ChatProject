@@ -16,7 +16,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            email TEXT UNIQUE
+            email TEXT UNIQUE,
+            avatar TEXT DEFAULT '/static/images/avatar.png'
         )
     ''')
     cursor.execute('''
@@ -128,20 +129,21 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def create_user(username, password, email):
+def create_user(username, password, email, avatar='/static/images/avatar.png'):
     conn = get_db()
     hashed_password = pwd_context.hash(password)
     try:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", 
-                      (username, hashed_password, email))
+        cursor.execute("INSERT INTO users (username, password, email, avatar) VALUES (?, ?, ?, ?)", 
+                      (username, hashed_password, email, avatar))
         conn.commit()
         user_id = cursor.lastrowid
-        return {"id": user_id, "username": username, "email": email}
+        return {"id": user_id, "username": username, "email": email, "avatar": avatar}
     except sqlite3.IntegrityError:
         return None
     finally:
         conn.close()
+
 
 def get_user(field_name, value):
     """

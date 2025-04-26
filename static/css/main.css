@@ -264,6 +264,15 @@ body {
 }
 
 /* Стили для элемента контакта */
+.contactInGroupInfo {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    cursor: pointer;
+    position: relative;
+}
+
+
 .contact {
     display: flex;
     align-items: center;
@@ -782,7 +791,6 @@ body {
     width: 280px;
     background-color: rgb(212, 214, 201);
     z-index: 1000;
-    border-radius: 8px;
     box-shadow: 0 6px 15px rgba(0,0,0,0.2);
     padding: 0;
     overflow: hidden;
@@ -862,46 +870,48 @@ body {
     object-fit: cover;
   }
   
+  .group-user-menu .profile-info {
+    display: flex;              /* Горизонтальное расположение */
+    align-items: center; 
+    flex-direction: row;       /* Вертикальное выравнивание по центру */
+    gap: 8px;                   /* Отступ между именем и кнопкой */
+    padding: 0 10px; 
+    margin :0%           /* Отступы по бокам, если нужно */
+  }
+  
   .group-user-menu .profile-info h3 {
-    margin: 0;
+    flex-grow: 1;               /* Имя занимает всё доступное пространство */
+    margin: 0;                  /* Убираем отступы */
+    white-space: nowrap;        /* Запрет переноса */
+    overflow: hidden;           /* Обрезка текста */
+    text-overflow: ellipsis;    /* Троеточие при переполнении */
     font-size: 18px;
     font-weight: 100;
-    text-align: center;     /* Текст по центру */
     color: #182F43;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-align: left;
+    padding-left: 50px;
   }
   
-  
-  .group-user-menu .profile-info p {
-    font-size: 14px;
-    color: #182F43;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  /* Кнопки без текста, круглые */
-  .group-user-menu button {
+  .group-user-menu .profile-info button {
+    flex-shrink: 0;             /* Кнопка не сжимается */
     width: 40px;
     height: 40px;
-    padding: 0;
-    border: none;
     border-radius: 50%;
-    background-color: transparent;
-    color: rgba(34, 61, 85, 0.95);
+    background: transparent;
+    border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: rgba(34, 61, 85, 0.95);
     transition: background-color 0.2s ease;
   }
   
-  /* Ховер эффект */
-  .group-user-menu  button:hover {
+  .group-user-menu .profile-info button:hover {
     background-color: rgba(34, 61, 85, 0.15);
   }
+  
+  
   
   /* Размер иконок */
   .group-user-menu .menu-icon {
@@ -948,7 +958,6 @@ body {
     overflow: hidden;
     flex-shrink: 0;
     margin-right: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
   }
   
   #users-list .user-item .contact-avatar img {

@@ -672,3 +672,45 @@ async def leave_group(group_id: int, user: dict = Depends(get_current_user)):
     finally:
         conn.close()
     return {"detail": "Вы успешно вышли из группы"}
+
+@app.post("/user/upload-avatar")
+async def upload_avatar(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+    # Проверка, что файл передан
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    # Проверка размера файла
+    file.file.seek(0, os.SEEK_END)
+    file_size = file.file.tell()
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
+    file.file.seek(0)  # Сбрасываем указатель файла
+
+    filename = file.filename
+    ext = filename.split('.')[-1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    # Путь для сохранения аватара в /static/images
+    upload_dir = os.path.join(BASE_DIR, "static", "images")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    unique_filename = f"user_{user['id']}_{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    avatar_url = f"/static/images/{unique_filename}"
+
+    # Обновляем аватар в базе данных
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET avatar = ? WHERE id = ?", (avatar_url, user["id"]))
+    conn.commit()
+    conn.close()
+
+    return {"avatar_url": avatar_url}
