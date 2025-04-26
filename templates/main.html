@@ -195,19 +195,34 @@
         Delete chat
       </button>
     </div>
-    <div id="group-user-menu" class="group-user-menu hidden">
-      <button id="add-group-member-btn">
-        <ion-icon name="person-add-outline" class="user-menu-icon"></ion-icon>
-        Добавить участника
-      </button>
-      <button id="leave-group-btn">
-        <ion-icon name="log-out-outline" class="user-menu-icon"></ion-icon>
-        Выйти из группы
-      </button>
-      <div id="users-list">
-        <!-- Здесь будет динамический список пользователей -->
+    <div id="group-user-menu" class="group-user-menu hidden" aria-label="Group members menu" role="dialog" aria-modal="true">
+      <div class="menu-buttons">
+        <button id="leave-group-btn" title="Выйти из группы" aria-label="Leave group">
+          <ion-icon name="log-out-outline" class="menu-icon"></ion-icon>
+        </button>
+        <button id="add-group-member-btn" title="Добавить участника" aria-label="Add member">
+          <ion-icon name="person-add-outline" class="menu-icon"></ion-icon>
+        </button>
+      </div>
+    
+      <div class="profile" aria-label="Group profile">
+        <div class="profile-avatar">
+          <img id="group-avatar" src="/static/images/avatar.png" alt="Group Avatar" />
+        </div>
+        <div class="profile-info">
+          <h3 id="group-name"></h3>
+          <button id="change-group-name-btn" title="Добавить участника" aria-label="Add member">
+            <ion-icon name="pencil" class="menu-icon"></ion-icon>
+          </button>
+
+        </div>
+      </div>
+    
+      <div id="users-list" class="users-list" role="list" aria-label="Group members list">
+        <!-- Участники будут добавлены динамически -->
       </div>
     </div>
+    
     <div id="confirmation-modal" class="confirmation-modal hidden">
       <div class="confirmation-content">
         <p>Are you sure you want to delete the chat?</p>

@@ -149,16 +149,28 @@ document.addEventListener('DOMContentLoaded', function() {
             }
     
             members.forEach(member => {
-                const div = document.createElement('div');
-                div.classList.add('user-item');
-                div.textContent = member.username;
-                usersList.appendChild(div);
+                const memberElement = document.createElement('div');
+                memberElement.classList.add('contact');
+                memberElement.setAttribute('data-id', member.id);
+                memberElement.innerHTML = `
+                <div class="contact-avatar">
+                    <img src="/static/images/avatar.png" alt="${member.username}">
+                </div>
+                <div class="contact-info">
+                    <h3>${member.username}</h3>
+                </div>
+                <div class="contact-status offline"></div>
+            `;
+                usersList.appendChild(memberElement);
             });
         } catch (error) {
             console.error(error);
             usersList.innerHTML = '<div style="padding: 10px; color: red;">Failed to load members</div>';
         }
     }
+    
+    
+    
     
 
     async function loadUserProfile() {
@@ -966,12 +978,17 @@ document.addEventListener('DOMContentLoaded', function() {
         groupUserMenu.classList.remove('active');
     
         if (isGroupChat) {
+            // Обновляем имя группы в меню
+            const groupNameElement = document.getElementById('group-name');
+            if (groupNameElement) {
+                groupNameElement.textContent = currentContactUsername || '';
+            }
+    
             groupUserMenu.classList.remove('hidden');
             setTimeout(() => {
                 groupUserMenu.classList.add('active');
             }, 10);
     
-            // Загрузить участников группы
             loadGroupMembers(currentChatId);
         } else {
             userMenu.classList.remove('hidden');
@@ -982,6 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
         document.addEventListener('click', handleOutsideClickMenu);
     });
+    
     
 
 
@@ -1296,10 +1314,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 groupElement.addEventListener('click', async function() {
                     document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
                     this.classList.add('active');
-    
+                
                     currentChatId = group.id;
                     currentContactUsername = group.name;
-    
+                
+                    // Обновляем хедер
                     document.querySelector('.current-contact .contact-info h3').textContent = group.name;
                     document.querySelector('.current-contact .contact-info p').textContent = 'Group';
                     const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
@@ -1307,11 +1326,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         headerAvatar.src = '/static/images/group.png';
                         headerAvatar.style.visibility = 'visible';
                     }
-    
+                
+                    // Обновляем меню группы — имя и убираем описание
+                    const groupNameElement = document.getElementById('group-name');
+                    if (groupNameElement) {
+                        groupNameElement.textContent = group.name;
+                    }
+                    const groupDescriptionElement = document.getElementById('group-description');
+                    if (groupDescriptionElement) {
+                        groupDescriptionElement.textContent = ''; // Убираем описание
+                    }
+                
                     reconnectWebSocket();
                     loadMessages();
                     enableMessaging();
                 });
+                
             });
         } catch (error) {
             console.error("Ошибка загрузки групп:", error);
