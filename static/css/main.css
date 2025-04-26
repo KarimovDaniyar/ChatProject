@@ -800,15 +800,15 @@ body {
   /* Контейнер кнопок сверху */
   .group-user-menu .menu-buttons {
     display: flex;
+    text-align: center;
     justify-content: space-between;
-    padding: 10px 16px;
-    background-color: rgb(255, 255, 255);
+    padding-left: 10px;
+    padding-right: 10px;
+    background-color: #ffff;
   }
   
   /* Стиль кнопок - круглые, без текста */
   .group-user-menu .menu-buttons button {
-    width: 40px;
-    height: 40px;
     padding: 0;
     border: none;
     border-radius: 50%;
@@ -828,6 +828,7 @@ body {
   /* Иконки */
   .group-user-menu .menu-icon {
     font-size: 24px;
+    margin-right: 0px;
     color: rgba(34, 61, 85, 0.95);
   }
   
@@ -839,6 +840,7 @@ body {
     padding: 16px 20px;
     color: #182F43;
     gap: 15px;
+    height: auto;
   }
   
   .group-user-menu .profile-avatar {
@@ -990,7 +992,6 @@ body {
 
 .user-menu-icon {
     font-size: 20px;
-    margin-right: 10px;
     color: rgba(255, 255, 255, 0.95);
 }
 
