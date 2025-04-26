@@ -471,6 +471,17 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
                     "timestamp": datetime.utcnow().isoformat() + "Z"
                 }
                 await manager.broadcast(message_to_broadcast, chat_id)
+                
+                # Also send a notification to the receiver to update their chat list
+                # This will be processed even if they're not in the chat currently
+                if message["receiver_id"]:
+                    await notif_manager.send(message["receiver_id"], {
+                        "type": "new_message",
+                        "chat_id": chat_id,
+                        "sender_id": message["sender_id"],
+                        "message_id": message_id,
+                        "content": content
+                    })
     except WebSocketDisconnect:
         manager.disconnect(websocket, chat_id, user)
         # Only broadcast if there are still active connections

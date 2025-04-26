@@ -147,6 +147,56 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Function to update the last message preview for a contact in the sidebar
+    function updateContactPreview(contactElement) {
+        const lastMsgBubble = messageContainer.querySelector('.message:last-child .message-bubble');
+        if (!lastMsgBubble) return;
+        let preview = '';
+        if (lastMsgBubble.querySelector('img.message-media')) {
+            preview = '📷 Photo';
+        } else if (lastMsgBubble.querySelector('video.message-media')) {
+            preview = '🎥 Video';
+        } else {
+            const textElem = lastMsgBubble.querySelector('p');
+            preview = textElem ? textElem.textContent : '';
+        }
+        if (preview.length > 30) preview = preview.slice(0, 30) + '…';
+        const previewElem = contactElement.querySelector('.contact-info p');
+        if (previewElem) previewElem.textContent = preview;
+    }
+
+    // Async function to fetch last message and update preview for each contact
+    async function fetchAndUpdateContactPreview(contactElement, contactId) {
+        try {
+            const chatResponse = await fetch(`/chat/one-on-one/${contactId}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (!chatResponse.ok) return;
+            const { chat_id } = await chatResponse.json();
+            const msgResponse = await fetch(`/messages/${chat_id}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (!msgResponse.ok) return;
+            const messages = await msgResponse.json();
+            if (!messages.length) return;
+            const lastContent = messages[messages.length - 1].content || '';
+            let preview = '';
+            if (/\[Media: (.*?)\]/.test(lastContent)) {
+                const file = /\[Media: (.*?)\]/.exec(lastContent)[1];
+                if (/\.(jpg|jpeg|png|gif)$/i.test(file)) preview = '📷 Photo';
+                else if (/\.(mp4|webm|ogg)$/i.test(file)) preview = '🎥 Video';
+                else preview = 'Attachment';
+            } else {
+                preview = lastContent;
+            }
+            if (preview.length > 30) preview = preview.slice(0, 30) + '…';
+            const previewElem = contactElement.querySelector('.contact-info p');
+            if (previewElem) previewElem.textContent = preview;
+        } catch (e) {
+            console.error('Preview fetch error', e);
+        }
+    }
+
     async function loadContacts() {
         try {
             console.log("Loading contacts...");
@@ -163,9 +213,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(`Failed to fetch contacts: ${response.status} ${response.statusText}`);
             }
             const contacts = await response.json();
-            console.log("Loaded contacts:", contacts);
             contactsList.innerHTML = "";
-            
+
             if (contacts.length === 0) {
                 const emptyMessage = document.createElement('div');
                 emptyMessage.classList.add('empty-contacts');
@@ -178,7 +227,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 contactsList.appendChild(emptyMessage);
                 return;
             }
-    
+
+            // Populate contacts and fetch previews
+            const previewPromises = [];
             contacts.forEach(contact => {
                 const contactElement = document.createElement('div');
                 contactElement.classList.add('contact');
@@ -190,13 +241,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="contact-info">
                         <h3>${contact.username}</h3>
-                        <p>Offline</p>
+                        <p></p>
                     </div>
                     <div class="contact-status offline"></div>
                 `;
                 contactsList.appendChild(contactElement);
+                // Prepare to fetch preview asynchronously
+                previewPromises.push(fetchAndUpdateContactPreview(contactElement, contact.id));
             });
-    
+            // Wait until all previews are loaded before enabling interactions
+            await Promise.all(previewPromises);
+
             const contactElements = document.querySelectorAll('.contact');
             contactElements.forEach(contact => {
                 contact.addEventListener('click', async function() {
@@ -224,7 +279,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         // Update chat header
                         document.querySelector('.current-contact .contact-info h3').textContent = contactName;
-                        document.querySelector('.current-contact .contact-info p').textContent = isOnline ? 'Online' : 'Offline';
                         document.querySelector('.current-contact .contact-avatar img').src = contactImg;
                         
                         // Reconnect WebSocket
@@ -285,13 +339,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     data.timestamp,
                     'message'
                 );
+                
+                // For both sender and receiver, move the chat up and update preview
+                const contactId = isOutgoing ? data.receiver_id : data.sender_id;
+                const contactEl = document.querySelector(`.contact[data-id="${contactId}"]`);
+                if (contactEl) {
+                    // Move the contact to the top of the list
+                    contactsList.prepend(contactEl);
+                    // Fetch and update preview to include this new message
+                    fetchAndUpdateContactPreview(contactEl, contactId);
+                }
             } else if (data.type === 'user_list') {
                 // Update online status of contacts
                 data.users.forEach(u => {
                     const el = document.querySelector(`.contact[data-id="${u.id}"]`);
                     if (el) {
                         el.querySelector('.contact-status').classList.replace('offline','online');
-                        el.querySelector('.contact-info p').textContent = 'Online';
                     }
                 });
             }
@@ -313,6 +376,52 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = JSON.parse(evt.data);
         if (data.type === 'contacts_update') {
             loadContacts();
+        } else if (data.type === 'new_message') {
+            // Handle new message notifications - move chat to top and update preview
+            const contactId = data.sender_id;
+            const contactElement = document.querySelector(`.contact[data-id="${contactId}"]`);
+            
+            if (contactElement) {
+                // Move chat to top of the list
+                contactsList.prepend(contactElement);
+                
+                // Use the existing updateContactPreview function
+                // First create a temporary message element to simulate having the message in the DOM
+                const tempMsg = document.createElement('div');
+                tempMsg.classList.add('message', 'incoming');
+                
+                const msgBubble = document.createElement('div');
+                msgBubble.classList.add('message-bubble');
+                
+                // Process message content (handle media or text)
+                if (/\[Media: (.*?)\]/.test(data.content)) {
+                    if (/\.(jpg|jpeg|png|gif)$/i.test(data.content)) {
+                        const img = document.createElement('img');
+                        img.classList.add('message-media');
+                        msgBubble.appendChild(img);
+                    } else if (/\.(mp4|webm|ogg)$/i.test(data.content)) {
+                        const video = document.createElement('video');
+                        video.classList.add('message-media');
+                        msgBubble.appendChild(video);
+                    }
+                } else {
+                    const p = document.createElement('p');
+                    p.textContent = data.content;
+                    msgBubble.appendChild(p);
+                }
+                
+                tempMsg.appendChild(msgBubble);
+                
+                // Temporarily append to message container (but hidden)
+                tempMsg.style.display = 'none';
+                messageContainer.appendChild(tempMsg);
+                
+                // Now update the preview using the existing function
+                updateContactPreview(contactElement);
+                
+                // Remove the temporary element
+                messageContainer.removeChild(tempMsg);
+            }
         }
     };
     notifSocket.onerror = e => console.error('Notifications WS error', e);
@@ -377,6 +486,12 @@ document.addEventListener('DOMContentLoaded', function() {
             mediaPreviewContainer.classList.add('hidden');
             mediaPreviewContent.innerHTML = '';
             selectedMedia.length = 0;
+            // Move chat up and update preview immediately after sending
+            const activeContact = document.querySelector('.contact.active');
+            if (activeContact) {
+                contactsList.prepend(activeContact);
+                updateContactPreview(activeContact);
+            }
         }
     });
 
@@ -429,17 +544,22 @@ document.addEventListener('DOMContentLoaded', function() {
             // Новая логика отправки через WebSocket
             if (ws.readyState === WebSocket.OPEN) {
                 if (uploadedMedia.length > 0) {
+                    // Display each media and text message as sent
                     if (uploadedMedia.length === 1) {
                         const mediaTag = ` [Media: ${uploadedMedia[0]}]`;
-                        ws.send(JSON.stringify({ content: (message || '') + mediaTag, type: "message" }));
+                        const contentWithMedia = (message || '') + mediaTag;
+                        displayMessage(null, contentWithMedia, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
+                        ws.send(JSON.stringify({ content: contentWithMedia, type: "message" }));
                     } else {
                         uploadedMedia.forEach((file, index) => {
                             const mediaTag = ` [Media: ${file}]`;
                             const contentForThis = index === uploadedMedia.length - 1 ? (message || '') + mediaTag : mediaTag;
+                            displayMessage(null, contentForThis, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
                             ws.send(JSON.stringify({ content: contentForThis, type: "message" }));
                         });
                     }
                 } else if (message) {
+                    displayMessage(null, message, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
                     ws.send(JSON.stringify({ content: message, type: "message" }));
                 }
             } else {
