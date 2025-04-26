@@ -60,6 +60,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    overflow: hidden;
 }
 
 /* Основной контейнер чата */
@@ -835,21 +836,24 @@ body {
   /* Профиль */
   .group-user-menu .profile {
     display: flex;
-    align-items: center;
-    background-color: #ffffff;
-    padding: 16px 20px;
-    color: #182F43;
-    gap: 15px;
+    flex-direction: column;
+    align-items: center; /* горизонтальное центрирование */
+    justify-content: center; /* вертикальное центрирование */
     height: auto;
-  }
+    padding: 1px;
+    padding-bottom: 20px;
+    background-color: #ffffff;
+    color: #182F43;
+}
   
   .group-user-menu .profile-avatar {
     width: 56px;
     height: 56px;
     border-radius: 50%;
     overflow: hidden;
-    flex-shrink: 0;
     border: 2px solid #d4d6c9;
+    flex-shrink: 0;
+    margin-right: 0px;
   }
   
   .group-user-menu .profile-avatar img {
@@ -861,12 +865,16 @@ body {
   .group-user-menu .profile-info h3 {
     margin: 0;
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 100;
+    text-align: center;     /* Текст по центру */
     color: #182F43;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
+  
   .group-user-menu .profile-info p {
-    margin: 4px 0 0 0;
     font-size: 14px;
     color: #182F43;
     white-space: nowrap;
@@ -913,6 +921,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    height: auto;
   }
   
   /* Элемент пользователя в списке */
