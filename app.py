@@ -2,7 +2,7 @@ import os
 import random
 import secrets
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form, Response
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -38,6 +38,7 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[int, List[Dict]] = {}
         self.active_users: Dict[int, List[Dict]] = {}
+        self.global_active: set = set()  # Глобальный набор онлайн-пользователей
 
     async def connect(self, websocket: WebSocket, chat_id: int, user: dict):
         # НЕ вызывайте websocket.accept() здесь!
@@ -47,6 +48,12 @@ class ConnectionManager:
         if not any(u["id"] == user["id"] for u in self.active_users[chat_id]):
             self.active_users[chat_id].append({"id": user["id"], "username": user["username"]})
         self.active_connections[chat_id].append({"websocket": websocket, "user": user})
+        # Рассылаем online-событие при первом подключении пользователя
+        if user["id"] not in self.global_active:
+            self.global_active.add(user["id"])
+            # уведомляем всех через notifications WS
+            for uid in notif_manager.active.keys():
+                await notif_manager.send(uid, {"type": "presence", "user_id": user["id"], "status": "online"})
         await self.broadcast_users(chat_id)
 
     async def disconnect(self, websocket: WebSocket, chat_id: int, user: dict):
@@ -56,6 +63,15 @@ class ConnectionManager:
                     self.active_connections[chat_id].remove(conn)
                     break
             self.active_users[chat_id] = [u for u in self.active_users[chat_id] if u["id"] != user["id"]]
+            # Проверяем, остались ли соединения пользователя в других чатах
+            still_connected = any(
+                any(c["user"]["id"] == user["id"] for c in conns)
+                for conns in self.active_connections.values()
+            )
+            if not still_connected:
+                self.global_active.remove(user["id"])
+                for uid in notif_manager.active.keys():
+                    await notif_manager.send(uid, {"type": "presence", "user_id": user["id"], "status": "offline"})
             if not self.active_connections[chat_id]:
                 del self.active_connections[chat_id]
                 del self.active_users[chat_id]
@@ -227,12 +243,15 @@ async def serve_login():
         return f.read()
 
 @app.get("/chat", response_class=HTMLResponse)
-async def serve_chat(token: Optional[str] = Query(None)):
+async def serve_chat(response: Response, token: Optional[str] = Query(None)):
     try:
         current_user = await get_current_user_from_query(token)
         file_path = os.path.join(BASE_DIR, "templates", "main.html")
+        # Запрет кеширования страницы чата
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
         with open(file_path, encoding="utf-8") as f:
-            return f.read()
+            return HTMLResponse(f.read(), status_code=200, headers=response.headers)
     except HTTPException as e:
         if e.status_code == 401:
             return RedirectResponse(url="/")
@@ -328,7 +347,16 @@ async def login(user: UserLogin):
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/logout")
-async def logout():
+async def logout(token: Optional[str] = Query(None)):
+    # При выходе по HTTP: рассылаем offline для глобального presence
+    if token:
+        payload = decode_access_token(token)
+        user_id = payload.get("user_id") if payload else None
+        if user_id and user_id in manager.global_active:
+            manager.global_active.remove(user_id)
+            for uid in notif_manager.active.keys():
+                await notif_manager.send(uid, {"type":"presence","user_id":user_id,"status":"offline"})
+    # Редирект на страницу логина
     return RedirectResponse(url="/")
 
 @app.get("/users")
@@ -714,6 +742,11 @@ async def upload_avatar(file: UploadFile = File(...), user: dict = Depends(get_c
     conn.close()
 
     return {"avatar_url": avatar_url}
+
+# Добавляем endpoint для получения списка онлайн-пользователей
+@app.get("/users/online")
+async def get_online_users():
+    return list(manager.global_active)
 
 @app.put("/groups/{group_id}/profile")
 async def update_group_profile(
