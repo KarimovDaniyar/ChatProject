@@ -628,7 +628,7 @@ async def get_user_groups(user: dict = Depends(get_current_user)):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT c.id, c.name, IFNULL(c.avatar, '/static/images/group.png') AS avatar
+        SELECT c.id, c.name, IFNULL(c.avatar, '/static/images/group.png') AS avatar, c.creator_id
         FROM chats c
         JOIN chat_members cm ON c.id = cm.chat_id
         WHERE cm.user_id = ? AND c.is_group = TRUE
@@ -765,3 +765,36 @@ async def update_group_profile(
     conn.close()
 
     return {"name": updated["name"], "avatar": updated["avatar"]}
+
+@app.delete("/groups/{group_id}/members/{user_id}")
+async def remove_group_member(group_id: int, user_id: int, current_user: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Проверяем, что текущий пользователь — создатель группы
+    cursor.execute("SELECT creator_id FROM chats WHERE id = ?", (group_id,))
+    group = cursor.fetchone()
+    if not group:
+        conn.close()
+        raise HTTPException(404, detail="Group not found")
+    if group["creator_id"] != current_user["id"]:
+        conn.close()
+        raise HTTPException(403, detail="Only group creator can remove members")
+
+    # Проверяем, что удаляемый пользователь в группе
+    cursor.execute("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?", (group_id, user_id))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(404, detail="User not in group")
+
+    # Не даём удалить создателя из группы
+    if user_id == group["creator_id"]:
+        conn.close()
+        raise HTTPException(400, detail="Cannot remove group creator")
+
+    # Удаляем пользователя из группы
+    cursor.execute("DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?", (group_id, user_id))
+    conn.commit()
+    conn.close()
+
+    return {"detail": "User removed from group"}

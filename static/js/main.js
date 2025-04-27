@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const editGroupNameInput = document.getElementById('edit-group-name');
 
     let selectedGroupAvatarFile = null;
+    let currentGroupCreatorId = null;
 
     // Disable message input and buttons on initial load
     disableMessaging();
@@ -148,35 +149,64 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadGroupMembers(groupId) {
         try {
+            // Запрос с расширением, чтобы получить creator_id (нужно добавить на сервере)
+            const groupResponse = await fetch(`/user/groups`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (!groupResponse.ok) throw new Error("Failed to load groups");
+            const groups = await groupResponse.json();
+            const group = groups.find(g => g.id === groupId);
+            currentGroupCreatorId = group ? group.creator_id : null;
+    
             const response = await fetch(`/groups/${groupId}/members`, {
-                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+                headers: { "Authorization": `Bearer ${token}` }
             });
             if (!response.ok) {
                 throw new Error(`Failed to load group members: ${response.statusText}`);
             }
             const members = await response.json();
     
-            usersList.innerHTML = ''; // Очистить список перед добавлением
+            usersList.innerHTML = '';
     
             if (members.length === 0) {
                 usersList.innerHTML = '<div style="padding: 10px; color: #ccc;">No members in this group</div>';
                 return;
             }
     
+            const currentUserId = getCurrentUserId();
+    
             members.forEach(member => {
                 const memberElement = document.createElement('div');
                 memberElement.classList.add('contactInGroupInfo');
                 memberElement.setAttribute('data-id', member.id);
+    
+                // Добавляем иконку удаления, если текущий пользователь — создатель и не этот участник
+                const canRemove = currentUserId === currentGroupCreatorId && member.id !== currentUserId;
+    
                 memberElement.innerHTML = `
-                <div class="contact-avatar">
-                    <img src="${member.avatar || '/static/images/avatar.png'}" alt="${member.username}">
-                </div>
-                <div class="contact-info">
-                    <h3>${member.username}</h3>
-                </div>
-                <div class="contact-status offline"></div>
-            `;
+                    <div class="contact-avatar">
+                        <img src="${member.avatar || '/static/images/avatar.png'}" alt="${member.username}">
+                    </div>
+                    <div class="contact-info">
+                        <h3>${member.username}</h3>
+                    </div>
+                    <div class="contact-status offline"></div>
+                    ${canRemove ? `<button class="remove-member-btn" title="Remove user" aria-label="Remove user">
+                        <ion-icon name="close-circle-outline" class="remove-icon"></ion-icon>
+                    </button>` : ''}
+                `;
                 usersList.appendChild(memberElement);
+            });
+    
+            // Добавляем обработчики клика по кнопкам удаления
+            document.querySelectorAll('.remove-member-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const memberDiv = e.target.closest('.contactInGroupInfo');
+                    const memberId = memberDiv.getAttribute('data-id');
+                    const memberName = memberDiv.querySelector('.contact-info h3').textContent;
+                    confirmRemoveMember(memberId, memberName);
+                });
             });
         } catch (error) {
             console.error(error);
@@ -185,6 +215,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     
+    function confirmRemoveMember(userId, username) {
+        const modal = document.getElementById('confirm-remove-member-modal');
+        const usernameElem = document.getElementById('remove-member-username');
+        const cancelBtn = document.getElementById('cancel-remove-member-btn');
+        const confirmBtn = document.getElementById('confirm-remove-member-btn');
+    
+        usernameElem.textContent = username;
+        modal.classList.remove('hidden');
+    
+        // Отвязываем предыдущие обработчики, чтобы не накапливались
+        cancelBtn.onclick = () => {
+            modal.classList.add('hidden');
+        };
+    
+        confirmBtn.onclick = async () => {
+            try {
+                const res = await fetch(`/groups/${currentChatId}/members/${userId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Ошибка при удалении участника');
+                }
+                showNotification(`Пользователь "${username}" успешно удалён из группы`);
+                await loadGroupMembers(currentChatId);
+            } catch (e) {
+                showNotification(`Ошибка: ${e.message}`);
+            } finally {
+                modal.classList.add('hidden');
+            }
+        };
+    }
     
     
 
