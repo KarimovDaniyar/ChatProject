@@ -1352,18 +1352,122 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     const searchInput = document.querySelector('.search-contact');
-    searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        const contacts = document.querySelectorAll('.contact');
+let isFetching = false;
+let lastFetchTime = 0;
+const fetchDelay = 100; // Minimum time between requests (ms)
+
+async function filterContacts(searchTerm) {
+    if (isFetching) return;
+    const now = Date.now();
+    if (now - lastFetchTime < fetchDelay) return;
+    isFetching = true;
+    lastFetchTime = now;
+
+    try {
+        // Fetch all contacts and groups if searchTerm is empty
+        const url = searchTerm ? `/contacts?query=${encodeURIComponent(searchTerm)}` : '/contacts';
+        const response = await fetch(url, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch contacts');
+        const contacts = await response.json();
+        contactsList.innerHTML = '';
+
+        if (contacts.length === 0 && searchTerm !== '') {
+            contactsList.innerHTML = `
+                <div class="no-results-message">
+                    <div class="empty-contacts-message">
+                        <p>No contacts or groups found for "${searchTerm}"</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const previewPromises = [];
         contacts.forEach(contact => {
-            const contactName = contact.querySelector('.contact-info h3').textContent.toLowerCase();
-            if (contactName.includes(searchTerm)) {
-                contact.style.display = 'flex';
-            } else {
-                contact.style.display = 'none';
+            const isGroup = contact.username === contact.name; // Groups have name as username
+            const contactElement = document.createElement('div');
+            contactElement.classList.add('contact');
+            if (isGroup) contactElement.classList.add('group');
+            contactElement.setAttribute('data-username', contact.username);
+            contactElement.setAttribute('data-id', contact.id);
+            if (isGroup) contactElement.setAttribute('data-group-id', contact.id);
+            contactElement.innerHTML = `
+                <div class="contact-avatar">
+                    <img src="${contact.avatar || (isGroup ? '/static/images/group.png' : '/static/images/avatar.png')}" alt="${contact.username}">
+                </div>
+                <div class="contact-info">
+                    <h3>${contact.username}</h3>
+                    <p>${isGroup ? 'Group' : ''}</p>
+                </div>
+                <div class="contact-status offline"></div>
+            `;
+            contactsList.appendChild(contactElement);
+            if (!isGroup) {
+                previewPromises.push(fetchAndUpdateContactPreview(contactElement, contact.id));
             }
         });
-    });
+        await Promise.all(previewPromises);
+
+        // Re-attach click event listeners
+        document.querySelectorAll('.contact').forEach(contact => {
+            contact.addEventListener('click', async function() {
+                document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                const contactName = this.querySelector('.contact-info h3').textContent;
+                const contactImg = this.querySelector('.contact-avatar img').src;
+                const isGroup = this.classList.contains('group');
+                const contactId = this.getAttribute('data-id');
+                currentContactAvatar = contactImg;
+                currentContactUsername = contactName;
+
+                try {
+                    if (isGroup) {
+                        currentChatId = contactId;
+                        document.querySelector('.current-contact .contact-info h3').textContent = contactName;
+                        document.querySelector('.current-contact .contact-info p').textContent = 'Group';
+                        document.querySelector('.current-contact .contact-avatar img').src = contactImg;
+                        reconnectWebSocket();
+                        loadMessages();
+                        enableMessaging();
+                        loadGroupMembers(currentChatId);
+                    } else {
+                        const response = await fetch(`/chat/one-on-one/${contactId}`, {
+                            headers: { "Authorization": `Bearer ${token}` }
+                        });
+                        if (!response.ok) throw new Error('Failed to get chat');
+                        const data = await response.json();
+                        currentChatId = data.chat_id;
+                        document.querySelector('.current-contact .contact-info h3').textContent = contactName;
+                        document.querySelector('.current-contact .contact-avatar img').src = contactImg;
+                        reconnectWebSocket();
+                        loadMessages();
+                        enableMessaging();
+                    }
+                } catch (error) {
+                    console.error("Error fetching chat ID:", error);
+                    showNotification(`Не удалось открыть чат: ${error.message}`);
+                    currentChatId = null;
+                    disableMessaging();
+                }
+            });
+        });
+
+        // Update online status
+        await initPresence();
+    } catch (error) {
+        console.error("Error filtering contacts:", error);
+        showNotification("Ошибка при фильтрации контактов");
+    } finally {
+        isFetching = false;
+    }
+}
+
+searchInput.addEventListener('input', function() {
+    const searchTerm = this.value.trim();
+    filterContacts(searchTerm);
+});
 
     const menuBtn = document.getElementById('menu-btn');
     const menu = document.getElementById('menu');
