@@ -512,11 +512,11 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
 
 @app.get("/user/profile")
 async def get_user_profile(user: dict = Depends(get_current_user)):
-    # The user object already comes from the database via get_current_user
     return {
         "id": user["id"],
         "username": user["username"],
-        "email": user["email"] or ""  # Provide empty string if email is None
+        "email": user["email"] or "",
+        "avatar": user.get("avatar", "/static/images/avatar.png")
     }
 
 @app.put("/user/profile")

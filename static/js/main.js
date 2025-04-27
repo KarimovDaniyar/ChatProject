@@ -324,6 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const previewPromises = [];
             contacts.forEach(contact => {
                 const contactElement = document.createElement('div');
+                console.log(contact);
                 contactElement.classList.add('contact');
                 contactElement.setAttribute('data-username', contact.username);
                 contactElement.setAttribute('data-id', contact.id);
@@ -353,7 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const isOnline = this.querySelector('.contact-status.online') !== null;
                     const contactId = this.getAttribute('data-id');
                     
-                    currentContactAvatar = contactImg;  // store contact avatar
+                    currentContactAvatar = contactImg;
                     
                     try {
                         const response = await fetch(`/chat/one-on-one/${contactId}`, {
@@ -381,9 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
     
-            if (contacts.length > 0) {
-                contacts[0].click();
-            }
+            console.log("Contacts loaded successfully");
         } catch (error) {
             console.error("Error loading contacts:", error);
         }
@@ -543,7 +542,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     msg.id,
                     msg.content,
                     msg.sender_username,
-                    isOutgoing ? currentUser.avatar : currentContactAvatar,
+                    msg.sender_avatar || (isOutgoing ? currentUser.avatar : currentContactAvatar),
                     isOutgoing,
                     msg.timestamp,
                     "message"

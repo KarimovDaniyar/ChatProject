@@ -202,7 +202,7 @@ def get_messages(chat_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, u.username as sender_username
+        SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, u.username as sender_username, u.avatar as sender_avatar
         FROM messages m
         JOIN users u ON m.sender_id = u.id
         WHERE m.chat_id = ?
@@ -333,7 +333,7 @@ def get_contacts(user_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT u.id, u.username
+        SELECT u.id, u.username,u.avatar
         FROM users u
         JOIN contacts c ON u.id = c.contact_id
         WHERE c.user_id = ?
