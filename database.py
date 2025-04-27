@@ -26,6 +26,7 @@ def init_db():
         name TEXT,
         is_group BOOLEAN DEFAULT FALSE,
         creator_id INTEGER,
+        avatar TEXT DEFAULT '/static/images/group.png',
         FOREIGN KEY (creator_id) REFERENCES users(id)
     )
 ''')

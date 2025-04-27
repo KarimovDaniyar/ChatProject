@@ -66,6 +66,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const editAvatarInput = document.getElementById('edit-avatar-input'); 
     let selectedAvatarFile = null;  
 
+    const editGroupProfileContainer = document.getElementById('edit-group-profile-container');
+    const editGroupProfileBtn = document.getElementById('edit-group-profile-btn') || changeGroupNameBtn; // если заменяем существующую кнопку
+    const cancelEditGroupProfileBtn = document.getElementById('cancel-edit-group-profile');
+    const saveGroupProfileBtn = document.getElementById('save-group-profile');
+
+    const editGroupAvatarImg = document.getElementById('edit-group-avatar-img');
+    const editGroupAvatarInput = document.getElementById('edit-group-avatar-input');
+    const editGroupNameInput = document.getElementById('edit-group-name');
+
+    let selectedGroupAvatarFile = null;
+
     // Disable message input and buttons on initial load
     disableMessaging();
     
@@ -158,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 memberElement.setAttribute('data-id', member.id);
                 memberElement.innerHTML = `
                 <div class="contact-avatar">
-                    <img src="/static/images/avatar.png" alt="${member.username}">
+                    <img src="${member.avatar || '/static/images/avatar.png'}" alt="${member.username}">
                 </div>
                 <div class="contact-info">
                     <h3>${member.username}</h3>
@@ -1234,6 +1245,111 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    editGroupProfileBtn.addEventListener('click', () => {
+        // Заполняем текущие значения
+        editGroupNameInput.value = currentContactUsername || '';
+        editGroupAvatarImg.src = document.querySelector('.current-contact .contact-avatar img').src || '/static/images/group.png';
+        selectedGroupAvatarFile = null;
+    
+        editGroupProfileContainer.classList.remove('hidden');
+        setTimeout(() => {
+            editGroupProfileContainer.classList.add('active');
+        }, 10);
+    });
+    
+    cancelEditGroupProfileBtn.addEventListener('click', () => {
+        editGroupProfileContainer.classList.remove('active');
+        setTimeout(() => {
+            editGroupProfileContainer.classList.add('hidden');
+        }, 300);
+    });
+    
+    // Клик по аватару — открываем выбор файла
+    editGroupAvatarImg.addEventListener('click', () => {
+        editGroupAvatarInput.click();
+    });
+    
+    // Выбор файла аватара
+    editGroupAvatarInput.addEventListener('change', () => {
+        const file = editGroupAvatarInput.files[0];
+        const allowedExtensions = ['png', 'jpg', 'jpeg', 'gif'];
+        const maxSize = 5 * 1024 * 1024;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (file && file.type.startsWith('image/') && allowedExtensions.includes(ext)) {
+            if (file.size > maxSize) {
+                showNotification('Файл слишком большой. Максимальный размер — 5 МБ.');
+                editGroupAvatarInput.value = '';
+                return;
+            }
+            selectedGroupAvatarFile = file;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                editGroupAvatarImg.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            showNotification('Пожалуйста, выберите изображение в формате PNG, JPG, JPEG или GIF.');
+            editGroupAvatarInput.value = '';
+        }
+    });
+
+    saveGroupProfileBtn.addEventListener('click', async () => {
+        const newName = editGroupNameInput.value.trim();
+        if (!newName) {
+            showNotification('Название группы не может быть пустым');
+            return;
+        }
+    
+        const formData = new FormData();
+        formData.append('name', newName);
+        if (selectedGroupAvatarFile) {
+            formData.append('avatar_file', selectedGroupAvatarFile);
+        }
+    
+        try {
+            const response = await fetch(`/groups/${currentChatId}/profile`, {
+                method: 'PUT',
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                },
+                body: formData
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Ошибка обновления группы');
+            }
+            const data = await response.json();
+    
+            // Обновляем UI
+            document.querySelector('.current-contact .contact-info h3').textContent = data.name;
+            document.querySelector('.current-contact .contact-avatar img').src = data.avatar || '/static/images/group.png';
+
+            const groupContactElement = document.querySelector(`.contact.group[data-group-id="${currentChatId}"]`);
+            if (groupContactElement) {
+                groupContactElement.querySelector('.contact-info h3').textContent = data.name;
+                groupContactElement.querySelector('.contact-avatar img').src = data.avatar || '/static/images/group.png';
+            }
+
+            const groupAvatarImg = document.querySelector('#group-user-menu .profile-avatar img');
+            if (groupAvatarImg) {
+                groupAvatarImg.src = data.avatar || '/static/images/group.png';
+            }
+    
+            showNotification('Профиль группы обновлен');
+    
+            // Закрываем модал
+            editGroupProfileContainer.classList.remove('active');
+            setTimeout(() => {
+                editGroupProfileContainer.classList.add('hidden');
+            }, 300);
+    
+            selectedGroupAvatarFile = null;
+        } catch (e) {
+            showNotification('Ошибка: ' + e.message);
+        }
+    });
+    
+
     function handleMediaFiles(files) {
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -1370,17 +1486,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // НЕ очищаем contactsList, просто добавляем новые группы
     
             groups.forEach(group => {
-                // Проверяем, есть ли уже группа с таким id, чтобы не дублировать
                 if (contactsList.querySelector(`.contact.group[data-group-id="${group.id}"]`)) {
-                    return; // группа уже есть, пропускаем
+                    return;
                 }
-    
+            
                 const groupElement = document.createElement('div');
                 groupElement.classList.add('contact', 'group');
                 groupElement.setAttribute('data-group-id', group.id);
                 groupElement.innerHTML = `
                     <div class="contact-avatar">
-                        <img src="/static/images/group.png" alt="${group.name}">
+                        <img src="${group.avatar || '/static/images/group.png'}" alt="${group.name}">
                     </div>
                     <div class="contact-info">
                         <h3>${group.name}</h3>
@@ -1388,39 +1503,40 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
                 contactsList.appendChild(groupElement);
-    
+            
                 groupElement.addEventListener('click', async function() {
                     document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
                     this.classList.add('active');
-                
+            
                     currentChatId = group.id;
                     currentContactUsername = group.name;
-                
+            
                     // Обновляем хедер
                     document.querySelector('.current-contact .contact-info h3').textContent = group.name;
                     document.querySelector('.current-contact .contact-info p').textContent = 'Group';
                     const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
                     if (headerAvatar) {
-                        headerAvatar.src = '/static/images/group.png';
+                        headerAvatar.src = group.avatar || '/static/images/group.png';
                         headerAvatar.style.visibility = 'visible';
                     }
-                
-                    // Обновляем меню группы — имя и убираем описание
+            
+                    // Обновляем меню группы — имя и аватар
                     const groupNameElement = document.getElementById('group-name');
                     if (groupNameElement) {
                         groupNameElement.textContent = group.name;
                     }
-                    const groupDescriptionElement = document.getElementById('group-description');
-                    if (groupDescriptionElement) {
-                        groupDescriptionElement.textContent = ''; // Убираем описание
+                    const groupAvatarImg = document.querySelector('#group-user-menu .profile-avatar img');
+                    if (groupAvatarImg) {
+                        groupAvatarImg.src = group.avatar || '/static/images/group.png';
                     }
-                
+            
                     reconnectWebSocket();
                     loadMessages();
                     enableMessaging();
+                    loadGroupMembers(currentChatId);
                 });
-                
             });
+            
         } catch (error) {
             console.error("Ошибка загрузки групп:", error);
             showNotification("Не удалось загрузить группы");

@@ -628,7 +628,7 @@ async def get_user_groups(user: dict = Depends(get_current_user)):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT c.id, c.name
+        SELECT c.id, c.name, IFNULL(c.avatar, '/static/images/group.png') AS avatar
         FROM chats c
         JOIN chat_members cm ON c.id = cm.chat_id
         WHERE cm.user_id = ? AND c.is_group = TRUE
@@ -645,7 +645,7 @@ async def get_group_members(
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT u.id, u.username 
+        SELECT u.id, u.username, IFNULL(u.avatar, '/static/images/avatar.png') AS avatar 
         FROM chat_members cm
         JOIN users u ON cm.user_id = u.id
         WHERE cm.chat_id = ?
@@ -714,3 +714,54 @@ async def upload_avatar(file: UploadFile = File(...), user: dict = Depends(get_c
     conn.close()
 
     return {"avatar_url": avatar_url}
+
+@app.put("/groups/{group_id}/profile")
+async def update_group_profile(
+    group_id: int,
+    name: Optional[str] = Form(None),
+    avatar_file: Optional[UploadFile] = File(None),
+    user: dict = Depends(get_current_user)
+):
+    # Проверяем, что пользователь — участник группы
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?", (group_id, user["id"]))
+    if not cursor.fetchone():
+        raise HTTPException(status_code=403, detail="Not a member of the group")
+
+    # Обновляем имя группы, если передано
+    if name:
+        cursor.execute("UPDATE chats SET name = ? WHERE id = ?", (name, group_id))
+
+    # Обработка аватара группы
+    if avatar_file:
+        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+        filename = avatar_file.filename
+        ext = filename.split('.')[-1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail="Invalid file type")
+        avatar_file.file.seek(0, os.SEEK_END)
+        size = avatar_file.file.tell()
+        if size > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="File too large")
+        avatar_file.file.seek(0)
+
+        upload_dir = os.path.join(BASE_DIR, "static", "images")
+        os.makedirs(upload_dir, exist_ok=True)
+
+        unique_filename = f"group_{group_id}_{uuid.uuid4().hex}.{ext}"
+        file_path = os.path.join(upload_dir, unique_filename)
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(avatar_file.file, buffer)
+
+        avatar_url = f"/static/images/{unique_filename}"
+        cursor.execute("UPDATE chats SET avatar = ? WHERE id = ?", (avatar_url, group_id))
+
+    conn.commit()
+    cursor.execute("SELECT name, avatar FROM chats WHERE id = ?", (group_id,))
+    updated = cursor.fetchone()
+    conn.close()
+
+    return {"name": updated["name"], "avatar": updated["avatar"]}
