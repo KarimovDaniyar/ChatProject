@@ -238,7 +238,8 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('Пожалуйста, выберите изображение в формате PNG, JPG, JPEG или GIF.');
             editAvatarInput.value = '';
         }
-    });
+    },
+);
 
     // Function to update the last message preview for a contact in the sidebar
     function updateContactPreview(contactElement) {
@@ -1022,7 +1023,10 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.setItem('token', data.token);
             token = data.token;
             showNotification('Профиль обновлён, токен обновлён');
+            await loadUserProfile();
             await loadContacts();
+            loadMessages();
+
     
             // Сбрасываем выбранный файл
             selectedAvatarFile = null;
