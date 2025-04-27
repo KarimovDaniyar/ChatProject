@@ -441,6 +441,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
             }
+            // Новая ветка для глобального presence
+            else if (data.type === 'presence') {
+                const el = document.querySelector(`.contact[data-id="${data.user_id}"] .contact-status`);
+                if (el) {
+                    el.classList.replace(data.status === 'online' ? 'offline' : 'online', data.status);
+                }
+            }
         };
         
         ws.onclose = (event) => {
@@ -504,6 +511,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Remove the temporary element
                 messageContainer.removeChild(tempMsg);
+            }
+        }
+        // Новая ветка для глобального presence
+        else if (data.type === 'presence') {
+            const el = document.querySelector(`.contact[data-id="${data.user_id}"] .contact-status`);
+            if (el) {
+                el.classList.replace(data.status === 'online' ? 'offline' : 'online', data.status);
             }
         }
     };
@@ -1214,7 +1228,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('logout').addEventListener('click', function() {
         localStorage.removeItem("token");
-        window.location.href = '/logout';
+        // Закрываем WebSocket соединения для обновления статуса присутствия
+        if (typeof ws !== 'undefined' && ws) ws.close();
+        if (typeof notifSocket !== 'undefined' && notifSocket) notifSocket.close();
+        // Переходим на страницу logout без добавления записи в историю
+        window.location.replace(`/logout?token=${token}`);
     });
 
     mediaButton.addEventListener('click', function() {
@@ -1496,5 +1514,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     loadUserProfile();
-    loadContacts();
+    loadContacts().then(initPresence);
+
+    // Добавляем функцию инициализации глобального присутствия
+    async function initPresence() {
+        try {
+            const res = await fetch('/users/online', { headers: { "Authorization": `Bearer ${token}` } });
+            if (!res.ok) return;
+            const onlineIds = await res.json();
+            document.querySelectorAll('.contact').forEach(c => {
+                const id = parseInt(c.getAttribute('data-id'), 10);
+                const statusEl = c.querySelector('.contact-status');
+                if (!statusEl) return;
+                if (onlineIds.includes(id)) statusEl.classList.replace('offline','online');
+                else statusEl.classList.replace('online','offline');
+            });
+        } catch (e) { console.error(e); }
+    }
 });
