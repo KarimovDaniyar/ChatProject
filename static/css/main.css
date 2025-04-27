@@ -1529,3 +1529,50 @@ body {
     font-size: 20px;
     margin-bottom: 8px;
 }
+
+.modal-container {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+  }
+  
+  .modal-container.hidden {
+    display: none;
+  }
+  
+  .confirmation-content {
+    background: #fff;
+    padding: 20px 30px;
+    border-radius: 8px;
+    max-width: 320px;
+    text-align: center;
+  }
+  
+  .confirmation-buttons {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .action-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .cancel-btn {
+    background-color: #ccc;
+    color: #333;
+  }
+  
+  .delete-btn {
+    background-color: #e53e3e;
+    color: #fff;
+  }
+  

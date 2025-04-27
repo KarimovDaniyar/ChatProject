@@ -149,6 +149,43 @@
         </div>
       </div>
     </div>
+    <div id="edit-group-profile-container" class="modal-container hidden">
+      <div class="modal-content edit-profile-modal">
+        <div class="edit-profile-header">
+          <button id="cancel-edit-group-profile" class="header-btn">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+          </button>
+          <h2>Edit Group Profile</h2>
+          <button id="save-group-profile" class="header-btn">
+            <ion-icon name="checkmark-outline"></ion-icon>
+          </button>
+        </div>
+        <div class="edit-profile-avatar">
+          <img id="edit-group-avatar-img" src="/static/images/group.png" alt="Group Avatar" />
+          <input type="file" id="edit-group-avatar-input" accept="image/*" style="display:none;" />
+        </div>
+        <div class="edit-profile-form">
+          <div class="edit-form-row">
+            <div class="edit-icon">
+              <ion-icon name="people-outline" class="form-icon"></ion-icon>
+            </div>
+            <input type="text" id="edit-group-name" placeholder="Group Name" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="confirm-remove-member-modal" class="modal-container hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-remove-member-title" aria-describedby="confirm-remove-member-desc">
+      <div class="modal-content confirmation-content">
+        <h2 id="confirm-remove-member-title">Подтверждение удаления</h2>
+        <p id="confirm-remove-member-desc">Вы уверены, что хотите удалить пользователя <strong id="remove-member-username"></strong> из группы?</p>
+        <div class="confirmation-buttons">
+          <button id="cancel-remove-member-btn" class="action-btn cancel-btn">Отмена</button>
+          <button id="confirm-remove-member-btn" class="action-btn delete-btn">Удалить</button>
+        </div>
+      </div>
+    </div>
+    
     <div id="edit-profile-container" class="modal-container hidden">
       <div class="modal-content edit-profile-modal">
         <div class="edit-profile-header">
@@ -212,9 +249,10 @@
         </div>
         <div class="profile-info">
           <h3 id="group-name"></h3>
-          <button id="change-group-name-btn" title="Добавить участника" aria-label="Add member">
-            <ion-icon name="pencil" class="menu-icon"></ion-icon>
+          <button id="edit-group-profile-btn" title="Edit group profile" aria-label="Edit group profile">
+            <ion-icon name="create-outline" class="menu-icon"></ion-icon>
           </button>
+          
 
         </div>
       </div>
