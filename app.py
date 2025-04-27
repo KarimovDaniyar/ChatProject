@@ -798,3 +798,72 @@ async def remove_group_member(group_id: int, user_id: int, current_user: dict = 
     conn.close()
 
     return {"detail": "User removed from group"}
+
+@app.delete("/messages/{chat_id}/clear")
+async def clear_chat_history(chat_id: int, user: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Проверяем, что пользователь состоит в этом чате
+    cursor.execute("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?", (chat_id, user["id"]))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(403, "User not in chat")
+
+    # Удаляем все сообщения в чате
+    cursor.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
+    conn.commit()
+    conn.close()
+
+    return {"detail": "Chat history cleared"}
+
+
+@app.delete("/chats/{chat_id}/leave")
+async def leave_chat(chat_id: int, user: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Проверяем, что чат существует и что это личный чат (не группа)
+    cursor.execute("SELECT is_group FROM chats WHERE id = ?", (chat_id,))
+    chat = cursor.fetchone()
+    if not chat:
+        conn.close()
+        raise HTTPException(404, "Chat not found")
+    if chat["is_group"]:
+        conn.close()
+        raise HTTPException(400, "This endpoint is only for one-on-one chats")
+
+    # Проверяем, что пользователь состоит в чате
+    cursor.execute("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?", (chat_id, user["id"]))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(403, "User not in chat")
+
+    # Получаем ID второго участника чата
+    cursor.execute("SELECT user_id FROM chat_members WHERE chat_id = ? AND user_id != ?", (chat_id, user["id"]))
+    other_user = cursor.fetchone()
+    other_user_id = other_user["user_id"] if other_user else None
+
+    # Удаляем связь пользователя с чатом
+    cursor.execute("DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?", (chat_id, user["id"]))
+
+    # Удаляем контакт между пользователями, если есть второй участник
+    if other_user_id:
+        cursor.execute("DELETE FROM contacts WHERE (user_id = ? AND contact_id = ?) OR (user_id = ? AND contact_id = ?)",
+                       (user["id"], other_user_id, other_user_id, user["id"]))
+
+    # Удаляем все сообщения в этом чате
+    cursor.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
+
+    conn.commit()
+
+    # Проверяем, остался ли кто-то в чате
+    cursor.execute("SELECT COUNT(*) as cnt FROM chat_members WHERE chat_id = ?", (chat_id,))
+    count = cursor.fetchone()["cnt"]
+    if count == 0:
+        # Если никого нет — удаляем чат
+        cursor.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
+        conn.commit()
+
+    conn.close()
+    return {"detail": "Chat, contacts and messages deleted for user"}
