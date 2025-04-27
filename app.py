@@ -366,53 +366,9 @@ async def list_users(user: dict = Depends(get_current_user)):
 
 # Новый эндпоинт для получения контактов текущего пользователя
 @app.get("/contacts")
-async def read_contacts(
-    query: Optional[str] = Query(None, min_length=1),
-    user: dict = Depends(get_current_user)
-):
-    conn = get_db()
-    cursor = conn.cursor()
-
-    # Fetch contacts
-    if query:
-        query = query.lower()
-        cursor.execute('''
-            SELECT u.id, u.username, u.avatar
-            FROM users u
-            JOIN contacts c ON u.id = c.contact_id
-            WHERE c.user_id = ? AND u.username LIKE ?
-        ''', (user["id"], f"%{query}%"))
-    else:
-        cursor.execute('''
-            SELECT u.id, u.username, u.avatar
-            FROM users u
-            JOIN contacts c ON u.id = c.contact_id
-            WHERE c.user_id = ?
-        ''', (user["id"],))
-    contacts = [dict(contact) for contact in cursor.fetchall()]
-
-    # Fetch groups
-    if query:
-        cursor.execute('''
-            SELECT c.id, c.name AS username, IFNULL(c.avatar, '/static/images/group.png') AS avatar
-            FROM chats c
-            JOIN chat_members cm ON c.id = cm.chat_id
-            WHERE cm.user_id = ? AND c.is_group = TRUE AND c.name LIKE ?
-        ''', (user["id"], f"%{query}%"))
-    else:
-        cursor.execute('''
-            SELECT c.id, c.name AS username, IFNULL(c.avatar, '/static/images/group.png') AS avatar
-            FROM chats c
-            JOIN chat_members cm ON c.id = cm.chat_id
-            WHERE cm.user_id = ? AND c.is_group = TRUE
-        ''', (user["id"],))
-    groups = [dict(group) for group in cursor.fetchall()]
-
-    conn.close()
-
-    # Combine contacts and groups
-    results = contacts + groups
-    return results
+async def read_contacts(user: dict = Depends(get_current_user)):
+    contacts = get_contacts(user["id"])
+    return contacts
 
 # Новый эндпоинт для добавления контактов
 @app.post("/contacts/add")
