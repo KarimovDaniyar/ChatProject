@@ -687,6 +687,7 @@ body {
 
 #edit-username,
 #edit-email,
+#edit-group-name,
 #edit-password {
     background-color: transparent;
     border: 1px solid rgba(34, 61, 85, 0.95);
@@ -729,6 +730,15 @@ body {
 }
 
 #new-contact-name {
+    background-color: transparent;
+    border: none;
+    outline: none;
+    color: rgba(34, 61, 85, 0.95);
+    font-size: 16px;
+    width: 100%;
+    padding: 12px 5px;
+}
+#new-group-name {
     background-color: transparent;
     border: none;
     outline: none;
@@ -927,7 +937,6 @@ body {
     background-color: #182F43; /* Темно-синий фон */
     color: #ffffff; /* Белый цвет текста */
     font-size: 16px;
-    border-radius: 0 0 8px 8px;
     display: flex;
     flex-direction: column;
     gap: 8px;
