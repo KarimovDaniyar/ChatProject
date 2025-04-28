@@ -81,7 +81,7 @@ def init_db():
         migrate_messages_table()
     
         # Seed default users: admin и q с паролем "1"
-    default_users = [("w", "1", "w@gmail.com"), ("q", "1", "q@gmail.com")]
+    default_users = [("Daniyar", "1", "w@gmail.com"), ("Alymbek", "1", "q@gmail.com"), ("Almaz", "1", "a@gmail.com")]
     for username, raw_pwd, email in default_users:
         hashed = pwd_context.hash(raw_pwd)
         cursor.execute(
