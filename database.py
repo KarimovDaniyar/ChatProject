@@ -81,12 +81,12 @@ def init_db():
         migrate_messages_table()
     
         # Seed default users: admin и q с паролем "1"
-    default_users = [("w", "1"), ("q", "1")]
-    for username, raw_pwd in default_users:
+    default_users = [("w", "1", "w@gmail.com"), ("q", "1", "q@gmail.com")]
+    for username, raw_pwd, email in default_users:
         hashed = pwd_context.hash(raw_pwd)
         cursor.execute(
-            "INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)",
-            (username, hashed)
+            "INSERT OR IGNORE INTO users (username, password, email) VALUES (?, ?, ?)",
+            (username, hashed, email)
         )
 
     conn.commit()
