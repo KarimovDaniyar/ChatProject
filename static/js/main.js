@@ -793,7 +793,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="message-sender">${senderName}</div>
                     ${mediaHTML}
                     ${textHTML}
-                    <span class="message-time">${formatTimestamp(timestamp)}</span>
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <span class="message-time">${formatTimestamp(timestamp)}</span>
+                        ${isOutgoing ? `<span class="message-status" title="Delivered">
+                            <ion-icon name="checkmark-done-outline" style="color: #b0b0b0; font-size: 18px; vertical-align: middle;"></ion-icon>
+                        </span>` : ''}
+                    </div>
                 </div>
             `;
         }
@@ -1536,7 +1541,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     emojiButton.addEventListener('click', function() {
         if (!mediaPreviewContainer.classList.contains('hidden')) {
-            mediaPreviewContainer.classList.add('hidden');
+            emojiPickerContainer.classList.add('hidden');
         }
         emojiPickerContainer.classList.remove('hidden');
         if (!emojisLoaded) {
