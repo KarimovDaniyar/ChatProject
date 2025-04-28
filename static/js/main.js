@@ -243,6 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 showNotification(`Пользователь "${username}" успешно удалён из группы`);
                 await loadGroupMembers(currentChatId);
+
             } catch (e) {
                 showNotification(`Ошибка: ${e.message}`);
             } finally {
@@ -395,6 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
                 contactsList.appendChild(emptyMessage);
+                await loadGroups();
                 return;
             }
     
@@ -1201,6 +1203,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
             // Обновляем список контактов и групп
             await loadContacts();
+            loadMessages();
     
             // Сбрасываем текущий чат
             currentChatId = null;

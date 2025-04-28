@@ -1601,8 +1601,8 @@ body {
   }
   
   .cancel-btn {
-    background-color: #ccc;
-    color: #333;
+    background-color: transparent;
+    color: rgba(34, 61, 85, 0.95);
   }
   
   .delete-btn {
