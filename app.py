@@ -2,7 +2,7 @@ import os
 import random
 import secrets
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form, Response
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form, Response, Body
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,7 +15,7 @@ import shutil
 from database import (
     add_group_members, create_group_chat, get_db, get_or_create_one_on_one_chat, init_db, create_user, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
-    add_contact, get_contacts, search_users
+    add_contact, get_contacts, search_users, mark_message_as_read
 )
 from security import create_access_token, decode_access_token
 from datetime import datetime, timedelta
@@ -463,13 +463,6 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
 
     await websocket.accept()
     await manager.connect(websocket, chat_id, user)
-    # await manager.broadcast({
-    #     "user_id": user["id"],
-    #     "username": user["username"],
-    #     "content": f"{user['username']} joined the chat",
-    #     "type": "system"
-    # }, chat_id)
-    
     try:
         while True:
             data = await websocket.receive_json()
@@ -510,6 +503,14 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
                         "message_id": message_id,
                         "content": content
                     })
+            # Новое: обработка события read
+            if data.get("type") == "read" and data.get("message_id"):
+                mark_message_as_read(data["message_id"])
+                await manager.broadcast({
+                    "type": "message_read",
+                    "message_id": data["message_id"],
+                    "reader_id": user["id"]
+                }, chat_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket, chat_id, user)
         # Only broadcast if there are still active connections
