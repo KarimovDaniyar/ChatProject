@@ -849,7 +849,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function formatTimestamp(timestamp) {
         try {
-            const date = new Date(timestamp);
+            let date;
+            // If timestamp has timezone info, parse directly
+            if (/Z$|[+\-]\d{2}:?\d{2}$/.test(timestamp)) {
+                date = new Date(timestamp);
+            } else {
+                // Treat DB timestamp (UTC) by appending 'Z' for UTC parsing
+                date = new Date(timestamp.replace(' ', 'T') + 'Z');
+            }
             if (isNaN(date.getTime())) {
                 console.error("Invalid timestamp:", timestamp);
                 return "Invalid time";
