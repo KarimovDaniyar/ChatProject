@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="contact-status offline"></div>
                     ${canRemove ? `<button class="remove-member-btn" title="Remove user" aria-label="Remove user">
-                        <ion-icon name="close-circle-outline" class="remove-icon"></ion-icon>
+                        <ion-icon name="trash-outline" class="remove-icon"></ion-icon>
                     </button>` : ''}
                 `;
                 usersList.appendChild(memberElement);

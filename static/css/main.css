@@ -984,7 +984,38 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
   }
+/* Кнопка удаления участника */
+#users-list .remove-member-btn {
+    background: transparent;
+    border: none;
+    padding: 6px;
+    margin-left: auto; /* Выравнивание кнопки вправо */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
 
+#users-list .remove-member-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15); /* Легкий белый фон при наведении */
+    transform: scale(1.1); /* Легкое увеличение для интерактивности */
+}
+
+#users-list .remove-member-btn:active {
+    background-color: rgba(255, 255, 255, 0.25); /* Более заметный фон при клике */
+}
+
+#users-list .remove-member-btn .remove-icon {
+    font-size: 20px; /* Размер иконки */
+    color: #ff4d4d; /* Красный цвет для указания удаления */
+    transition: color 0.2s ease;
+}
+
+#users-list .remove-member-btn:hover .remove-icon {
+    color: #ff6666; /* Более светлый красный при наведении */
+}
 
 
 
