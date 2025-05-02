@@ -1,21 +1,20 @@
+import { showNotification, enableMessaging, disableMessaging } from './modules/ui.js';
+import { formatTimestamp, fetchAndUpdateContactPreview } from './modules/utils.js';
+import { ensureAuthenticated, getToken, removeToken, getAuthHeaders, getCurrentUserId } from './modules/auth.js';
+
 document.addEventListener('DOMContentLoaded', function() {
-    // заменили const на let, чтобы можно было присваивать новый токен:
-    let token = localStorage.getItem("token");
-    if (!token) {
-        console.log("No token found, redirecting to login");
-        window.location.href = "/";
-        return;
-    }
+    const token = ensureAuthenticated();
+    if (!token) return;
 
     let addUserContext = 'contacts';
 
     let currentChatId = null; // Добавьте эту переменную
     let currentContactAvatar = null; // Для хранения аватара текущего контакта
+    let currentContactUsername = null; // Для хранения имени текущего контакта или группы
     const messageContainer = document.querySelector("#message-container");
     const messageInput = document.querySelector("#message-text");
     const sendButton = document.querySelector("#send-button");
     const contactsList = document.querySelector('.contacts-list');
-    const noChatPlaceholder = document.querySelector('#no-chat-selected');
     const selectedMedia = [];
     const mediaInput = document.getElementById('media-input');
     const mediaButton = document.getElementById('media-button');
@@ -26,7 +25,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const lightboxContent = document.querySelector('.lightbox-content');
     const closeLightboxBtn = document.getElementById('close-lightbox');
     const downloadMediaBtn = document.getElementById('download-media');
-    const chatHeader = document.querySelector('.chat-header');
 
     const emojiButton = document.querySelector('.emoji-button');
     const emojiPickerContainer = document.getElementById('emoji-picker-container');
@@ -78,55 +76,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedGroupAvatarFile = null;
     let currentGroupCreatorId = null;
 
+    let editingMessageId = null;
+    const originalSendButtonHTML = sendButton.innerHTML;
+
     // Disable message input and buttons on initial load
     disableMessaging();
     
-    // Function to disable messaging when no chat is selected
-    function disableMessaging() {
-        messageInput.disabled = true;
-        sendButton.disabled = true;
-        document.getElementById('media-button').disabled = true;
-        document.querySelector('.emoji-button').disabled = true;
-        userMenuBtn.disabled = true; // Disable the user menu button
-        
-        // Show placeholder
-        noChatPlaceholder.style.display = 'flex';
-
-        const headerAvatar = chatHeader.querySelector('.current-contact .contact-avatar img');
-        if (headerAvatar) {
-            headerAvatar.style.visibility = 'hidden';
-        }
-        
-        // Add visual indication that input is disabled
-        messageInput.classList.add('disabled');
-        sendButton.classList.add('disabled');
-        document.getElementById('media-button').classList.add('disabled');
-        document.querySelector('.emoji-button').classList.add('disabled');
-        userMenuBtn.classList.add('disabled'); // Add disabled class to user menu button
-    }
-    
-    // Function to enable messaging when a chat is selected
-    function enableMessaging() {
-        messageInput.disabled = false;
-        sendButton.disabled = false;
-        document.getElementById('media-button').disabled = false;
-        document.querySelector('.emoji-button').disabled = false;
-        userMenuBtn.disabled = false; // Enable the user menu button
-        
-        // Hide placeholder
-        noChatPlaceholder.style.display = 'none';
-        const headerAvatar = chatHeader.querySelector('.current-contact .contact-avatar img');
-        if (headerAvatar) {
-            headerAvatar.style.visibility = 'visible';
-        }
-        
-        // Remove visual indication
-        messageInput.classList.remove('disabled');
-        sendButton.classList.remove('disabled');
-        document.getElementById('media-button').classList.remove('disabled');
-        document.querySelector('.emoji-button').classList.remove('disabled');
-        userMenuBtn.classList.remove('disabled'); // Remove disabled class from user menu button
-    }
 
     const currentUser = {
         name: 'You',
@@ -136,22 +91,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Хранилище для идентификаторов отображённых сообщений
     const displayedMessages = new Set();
 
-    // Получаем свой user_id из JWT
-    function getCurrentUserId() {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return parseInt(payload.user_id, 10);
-        } catch {
-            return null;
-        }
-    }
-    
 
     async function loadGroupMembers(groupId) {
         try {
             // Запрос с расширением, чтобы получить creator_id (нужно добавить на сервере)
             const groupResponse = await fetch(`/user/groups`, {
-                headers: { "Authorization": `Bearer ${token}` }
+                headers: getAuthHeaders()
             });
             if (!groupResponse.ok) throw new Error("Failed to load groups");
             const groups = await groupResponse.json();
@@ -159,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
             currentGroupCreatorId = group ? group.creator_id : null;
     
             const response = await fetch(`/groups/${groupId}/members`, {
-                headers: { "Authorization": `Bearer ${token}` }
+                headers: getAuthHeaders()
             });
             if (!response.ok) {
                 throw new Error(`Failed to load group members: ${response.statusText}`);
@@ -233,9 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const res = await fetch(`/groups/${currentChatId}/members/${userId}`, {
                     method: 'DELETE',
-                    headers: {
-                        "Authorization": `Bearer ${token}`
-                    }
+                    headers: getAuthHeaders()
                 });
                 if (!res.ok) {
                     const err = await res.json();
@@ -257,9 +200,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadUserProfile() {
         try {
             const response = await fetch("/user/profile", {
-                headers: { 
-                    "Authorization": `Bearer ${token}` 
-                }
+                headers: getAuthHeaders()
             });
             
             if (response.ok) {
@@ -336,48 +277,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (previewElem) previewElem.textContent = preview;
     }
 
-    // Async function to fetch last message and update preview for each contact
-    async function fetchAndUpdateContactPreview(contactElement, contactId) {
-        try {
-            const chatResponse = await fetch(`/chat/one-on-one/${contactId}`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (!chatResponse.ok) return;
-            const { chat_id } = await chatResponse.json();
-            const msgResponse = await fetch(`/messages/${chat_id}`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (!msgResponse.ok) return;
-            const messages = await msgResponse.json();
-            if (!messages.length) return;
-            const lastContent = messages[messages.length - 1].content || '';
-            let preview = '';
-            if (/\[Media: (.*?)\]/.test(lastContent)) {
-                const file = /\[Media: (.*?)\]/.exec(lastContent)[1];
-                if (/\.(jpg|jpeg|png|gif)$/i.test(file)) preview = '📷 Photo';
-                else if (/\.(mp4|webm|ogg)$/i.test(file)) preview = '🎥 Video';
-                else preview = 'Attachment';
-            } else {
-                preview = lastContent;
-            }
-            if (preview.length > 30) preview = preview.slice(0, 30) + '…';
-            const previewElem = contactElement.querySelector('.contact-info p');
-            if (previewElem) previewElem.textContent = preview;
-        } catch (e) {
-            console.error('Preview fetch error', e);
-        }
-    }
-
     async function loadContacts() {
         try {
             console.log("Loading contacts...");
             const response = await fetch("/contacts", {
-                headers: { "Authorization": `Bearer ${token}` }
+                headers: getAuthHeaders()
             });
             if (!response.ok) {
                 if (response.status === 401) {
                     console.log("Unauthorized, redirecting to login");
-                    localStorage.removeItem("token");
+                    removeToken();
                     window.location.href = "/";
                     return;
                 }
@@ -437,7 +346,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     try {
                         const response = await fetch(`/chat/one-on-one/${contactId}`, {
-                            headers: { "Authorization": `Bearer ${token}` }
+                            headers: getAuthHeaders()
                         });
                         if (!response.ok) {
                             const errorData = await response.json();
@@ -478,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ws.onclose = null;
             ws.close();
         }
-        ws = new WebSocket(`ws://${window.location.host}/ws/${currentChatId}?token=${token}`);
+        ws = new WebSocket(`ws://${window.location.host}/ws/${currentChatId}?token=${getToken()}`);
         ws.onopen = () => {
             console.log("WebSocket connection established for chat:", currentChatId);
             // После открытия ws отправляем read для всех входящих непрочитанных сообщений
@@ -546,6 +455,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     el.classList.replace(data.status === 'online' ? 'offline' : 'online', data.status);
                 }
             }
+            // Handle deletion of a message
+            else if (data.type === 'message_deleted') {
+                const deletedElem = messageContainer.querySelector(`[data-message-id="${data.message_id}"]`);
+                if (deletedElem) deletedElem.remove();
+            }
+            // Handle refactoring of a message
+            else if (data.type === 'message_refactor') {
+                const messageEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
+                if (messageEl) {
+                    const bubble = messageEl.querySelector('.message-bubble');
+                    const p = bubble.querySelector('p');
+                    if (p) {
+                        p.textContent = data.new_content;
+                    }
+                }
+            }
         };
         
         ws.onclose = (event) => {
@@ -559,7 +484,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
  
     // …после reconnectWebSocket()/ws.onmessage…
-    const notifSocket = new WebSocket(`ws://${window.location.host}/ws/notifications?token=${token}`);
+    const notifSocket = new WebSocket(`ws://${window.location.host}/ws/notifications?token=${getToken()}`);
     notifSocket.onmessage = evt => {
         const data = JSON.parse(evt.data);
         if (data.type === 'contacts_update') {
@@ -630,12 +555,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             console.log("Loading messages for chat_id:", currentChatId);
             const response = await fetch(`/messages/${currentChatId}`, {
-                headers: { "Authorization": `Bearer ${token}` }
+                headers: getAuthHeaders()
             });
             if (!response.ok) {
                 if (response.status === 401) {
                     console.log("Unauthorized, redirecting to login");
-                    localStorage.removeItem("token");
+                    removeToken();
                     window.location.href = "/";
                     return;
                 }
@@ -682,7 +607,40 @@ document.addEventListener('DOMContentLoaded', function() {
     sendButton.addEventListener("click", async () => {
         const content = messageInput.value.trim();
         
-        // Проверяем, выбран ли контакт
+        // Check if we're in editing mode
+        if (editingMessageId) {
+            if (content) {
+                // Update the message
+                try {
+                    const response = await fetch(`/messages/${editingMessageId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...getAuthHeaders()
+                        },
+                        body: JSON.stringify({ new_message: content })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to update message');
+                    }
+                    
+                    showNotification('Message updated successfully');
+                    
+                    // UI will update via websocket, but can also update manually here
+                    // if needed for instant feedback
+                } catch (error) {
+                    console.error('Error updating message:', error);
+                    showNotification('Failed to update message');
+                }
+            }
+            
+            // Cancel editing mode regardless of success
+            cancelEditing();
+            return;
+        }
+        
+        // Regular send message functionality
         if (!currentChatId) {
             console.log("No contact selected");
             return;
@@ -706,6 +664,36 @@ document.addEventListener('DOMContentLoaded', function() {
     messageInput.addEventListener('keypress', async (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
+            
+            // If we're editing, handle like the save button
+            if (editingMessageId) {
+                const content = messageInput.value.trim();
+                if (content) {
+                    try {
+                        const response = await fetch(`/messages/${editingMessageId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...getAuthHeaders()
+                            },
+                            body: JSON.stringify({ new_message: content })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Failed to update message');
+                        }
+                    } catch (error) {
+                        console.error('Error updating message:', error);
+                        showNotification('Failed to update message');
+                    }
+                }
+                
+                // Cancel editing mode regardless of success
+                cancelEditing();
+                return;
+            }
+            
+            // Regular send message functionality
             const content = messageInput.value.trim();
             if (content || selectedMedia.length > 0) {
                 await sendMessage(content, selectedMedia);
@@ -734,9 +722,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Загружаем файлы на сервер
                 const uploadResponse = await fetch(`/upload-media/${currentChatId}`, {
                     method: 'POST',
-                    headers: {
-                        "Authorization": `Bearer ${token}`
-                    },
+                    headers: getAuthHeaders(),
                     body: formData
                 });
                 
@@ -847,27 +833,6 @@ document.addEventListener('DOMContentLoaded', function() {
         messageContainer.scrollTop = messageContainer.scrollHeight;
     }
 
-    function formatTimestamp(timestamp) {
-        try {
-            let date;
-            // If timestamp has timezone info, parse directly
-            if (/Z$|[+\-]\d{2}:?\d{2}$/.test(timestamp)) {
-                date = new Date(timestamp);
-            } else {
-                // Treat DB timestamp (UTC) by appending 'Z' for UTC parsing
-                date = new Date(timestamp.replace(' ', 'T') + 'Z');
-            }
-            if (isNaN(date.getTime())) {
-                console.error("Invalid timestamp:", timestamp);
-                return "Invalid time";
-            }
-            return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        } catch (error) {
-            console.error("Error formatting timestamp:", timestamp, error);
-            return "Invalid time";
-        }
-    }
-
     addUserButton.addEventListener('click', () => {
         addUserContext = 'contacts';
         addUserContainer.classList.remove('hidden');
@@ -896,7 +861,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Добавление в контакты
         try {
             const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(usernameToAdd)}`, {
-                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+                headers: getAuthHeaders()
             });
             if (!searchResponse.ok) throw new Error(`Ошибка поиска пользователя: ${searchResponse.statusText}`);
             const searchResults = await searchResponse.json();
@@ -913,7 +878,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
             // Получаем текущего пользователя с сервера
             const profileResponse = await fetch('/user/profile', {
-                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+                headers: getAuthHeaders()
             });
             if (!profileResponse.ok) throw new Error('Не удалось получить профиль пользователя');
             const currentUser = await profileResponse.json();
@@ -935,7 +900,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    ...getAuthHeaders()
                 },
                 body: JSON.stringify({ contact_ids: [userToAdd.id] })
             });
@@ -965,7 +930,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             // Поиск пользователя
             const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(usernameToAdd)}`, {
-                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+                headers: getAuthHeaders()
             });
             
             if (!searchResponse.ok) {
@@ -995,7 +960,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    ...getAuthHeaders()
                 },
                 body: JSON.stringify({ user_ids: [userToAdd.id] })
             });
@@ -1053,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
+                    ...getAuthHeaders()
                 },
                 body: JSON.stringify({ name: groupName })
             });
@@ -1118,9 +1083,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
                 const uploadResponse = await fetch('/user/upload-avatar', {
                     method: 'POST',
-                    headers: {
-                        "Authorization": `Bearer ${token}`
-                    },
+                    headers: getAuthHeaders(),
                     body: formData
                 });
     
@@ -1143,7 +1106,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    ...getAuthHeaders()
                 },
                 body: JSON.stringify(bodyData)
             });
@@ -1242,9 +1205,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch(`/groups/${currentChatId}/leave`, {
                 method: 'POST',
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
+                headers: getAuthHeaders()
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -1301,7 +1262,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!currentChatId) return;
         const response = await fetch(`/messages/${currentChatId}/clear`, {
             method: 'DELETE',
-            headers: { "Authorization": `Bearer ${token}` }
+            headers: getAuthHeaders()
         });
         if (!response.ok) {
             const err = await response.json();
@@ -1350,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
             const response = await fetch(url, {
                 method,
-                headers: { "Authorization": `Bearer ${token}` }
+                headers: getAuthHeaders()
             });
     
             if (!response.ok) {
@@ -1438,11 +1399,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('logout').addEventListener('click', function() {
-        localStorage.removeItem("token");
+        const token = getToken();
+        removeToken();
         // Закрываем WebSocket соединения для обновления статуса присутствия
         if (typeof ws !== 'undefined' && ws) ws.close();
         if (typeof notifSocket !== 'undefined' && notifSocket) notifSocket.close();
-        // Переходим на страницу logout без добавления записи в историю
+        // Переходим на страницу logout с сохранённым токеном
         window.location.replace(`/logout?token=${token}`);
     });
 
@@ -1523,9 +1485,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch(`/groups/${currentChatId}/profile`, {
                 method: 'PUT',
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                },
+                headers: getAuthHeaders(),
                 body: formData
             });
             if (!response.ok) {
@@ -1690,9 +1650,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadGroups() {
         try {
             const response = await fetch("/user/groups", {
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
+                headers: getAuthHeaders()
             });
             if (!response.ok) throw new Error("Не удалось загрузить группы");
             const groups = await response.json();
@@ -1810,32 +1768,13 @@ document.addEventListener('DOMContentLoaded', function() {
         messageInput.focus();
     }
 
-    // Добавим функцию для отображения уведомлений
-    function showNotification(message) {
-        // Простая реализация уведомления - можно улучшить с CSS-анимацией
-        const notification = document.createElement('div');
-        notification.className = 'notification';
-        notification.textContent = message;
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.classList.add('show');
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => {
-                    document.body.removeChild(notification);
-                }, 300);
-            }, 3000);
-        }, 100);
-    }
-
     loadUserProfile();
     loadContacts().then(initPresence);
 
     // Добавляем функцию инициализации глобального присутствия
     async function initPresence() {
         try {
-            const res = await fetch('/users/online', { headers: { "Authorization": `Bearer ${token}` } });
+            const res = await fetch('/users/online', { headers: getAuthHeaders() });
             if (!res.ok) return;
             const onlineIds = await res.json();
             document.querySelectorAll('.contact').forEach(c => {
@@ -1847,4 +1786,98 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         } catch (e) { console.error(e); }
     }
+
+    // Custom context menu for messages
+    messageContainer.addEventListener('contextmenu', function(e) {
+        const messageEl = e.target.closest('.message');
+        // only allow context menu on own (outgoing) messages
+        if (!messageEl || !messageEl.classList.contains('outgoing')) return;
+        e.preventDefault();
+        const menu = document.getElementById('message-menu');
+        menu.style.top = e.pageY + 'px';
+        menu.style.left = e.pageX + 'px';
+        menu.classList.remove('hidden');
+        menu.currentMessageEl = messageEl;
+    });
+
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('message-menu');
+        if (!menu.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+
+    // Edit message action
+    document.getElementById('edit-message-btn').addEventListener('click', function() {
+        const menu = document.getElementById('message-menu');
+        const messageEl = menu.currentMessageEl;
+        if (!messageEl) return;
+        
+        // Get the message content and ID
+        const bubble = messageEl.querySelector('.message-bubble');
+        const p = bubble.querySelector('p');
+        const originalText = p ? p.textContent : '';
+        const msgId = messageEl.getAttribute('data-message-id');
+        
+        // Put the text in the message input
+        messageInput.value = originalText;
+        messageInput.focus();
+        
+        // Track that we're editing and which message
+        editingMessageId = msgId;
+        editingMessageEl = messageEl;
+        
+        // Change the send button to update button
+        sendButton.innerHTML = '<ion-icon name="checkmark-outline"></ion-icon>';
+        sendButton.classList.add('editing');
+        
+        // Show a cancel button next to the input
+        if (!document.getElementById('cancel-edit-input-btn')) {
+            const cancelBtn = document.createElement('button');
+            cancelBtn.id = 'cancel-edit-input-btn';
+            cancelBtn.className = 'cancel-edit-btn';
+            cancelBtn.innerHTML = '<ion-icon name="close-outline"></ion-icon>';
+            cancelBtn.title = 'Cancel editing';
+            cancelBtn.addEventListener('click', cancelEditing);
+            
+            // Insert before the send button
+            sendButton.parentNode.insertBefore(cancelBtn, sendButton);
+        }
+        
+        // Hide the context menu
+        menu.classList.add('hidden');
+    });
+
+    // Function to cancel editing
+    function cancelEditing() {
+        // Restore send button
+        sendButton.innerHTML = originalSendButtonHTML;
+        sendButton.classList.remove('editing');
+        
+        // Clear message input
+        messageInput.value = '';
+        
+        // Remove the editing state
+        editingMessageId = null;
+        editingMessageEl = null;
+        
+        // Remove cancel button
+        const cancelBtn = document.getElementById('cancel-edit-input-btn');
+        if (cancelBtn) cancelBtn.remove();
+        
+        // Remove editing indicator
+        const indicator = document.getElementById('editing-indicator');
+        if (indicator) indicator.remove();
+    }
+
+    // Delete message action
+    document.getElementById('delete-message-btn').addEventListener('click', function() {
+        const menu = document.getElementById('message-menu');
+        const messageEl = menu.currentMessageEl;
+        const msgId = messageEl.getAttribute('data-message-id');
+        if (msgId && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'message_deleted', message_id: parseInt(msgId) }));
+        }
+        menu.classList.add('hidden');
+    });
 });

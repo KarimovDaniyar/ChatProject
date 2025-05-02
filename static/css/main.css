@@ -454,6 +454,7 @@ body {
 .message-avatar {
     width: 35px;
     height: 35px;
+    min-width: 35px; /* Add min-width to prevent shrinking */
     border-radius: 50%;
     overflow: hidden;
     margin: 0 8px;
@@ -1636,8 +1637,63 @@ body {
     color: rgba(34, 61, 85, 0.95);
   }
   
+  .save-btn {
+    background-color: transparent;
+    color: rgba(34, 61, 85, 0.95);
+  }
+
+  .save-btn:hover {
+    background-color: rgba(192, 194, 181, 1);
+  }
+
   .delete-btn {
     background-color: #e53e3e;
     color: #fff;
   }
-  
+
+/* Styles for the message context menu */
+.message-menu {
+    position: absolute;
+    background-color: rgba(34, 61, 85, 0.95);
+    border: 1px solid #d4d6c9;
+    border-radius: 4px;
+    z-index: 5000;
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+}
+.message-menu.hidden {
+    display: none;
+}
+.message-menu button {
+    background: transparent;
+    color: #ffffff;
+    border: none;
+    padding: 8px 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.message-menu button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Styles for cancel edit button */
+.cancel-edit-btn {
+    background: transparent;
+    border: none;
+    color: rgba(212, 214, 201, 1);
+    cursor: pointer;
+    font-size: 24px;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 40px;
+}
+
+/* Styles for send button in editing mode */
+.send-button.editing {
+    color: #25d366; /* Green color to indicate editing mode */
+}

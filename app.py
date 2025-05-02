@@ -511,6 +511,15 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
                     "message_id": data["message_id"],
                     "reader_id": user["id"]
                 }, chat_id)
+            # Обработка удаления сообщения
+            if data.get("type") == "message_deleted" and data.get("message_id"):
+                # удаляем сообщение в БД
+                conn_del = get_db()
+                cur_del = conn_del.cursor()
+                cur_del.execute("DELETE FROM messages WHERE id = ?", (data["message_id"],))
+                conn_del.commit(); conn_del.close()
+                # оповещаем всех участников чата
+                await manager.broadcast({"type": "message_deleted", "message_id": data["message_id"]}, chat_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket, chat_id, user)
         # Only broadcast if there are still active connections
@@ -851,7 +860,6 @@ async def clear_chat_history(chat_id: int, user: dict = Depends(get_current_user
 
     return {"detail": "Chat history cleared"}
 
-
 @app.delete("/chats/{chat_id}/leave")
 async def leave_chat(chat_id: int, user: dict = Depends(get_current_user)):
     conn = get_db()
@@ -901,3 +909,30 @@ async def leave_chat(chat_id: int, user: dict = Depends(get_current_user)):
 
     conn.close()
     return {"detail": "Chat, contacts and messages deleted for user"}
+
+@app.put("/messages/{message_id}")
+async def refactor_message_endpoint(message_id: int, payload: dict = Body(...), user: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+    # Verify message exists and user is sender
+    cursor.execute("SELECT chat_id, sender_id FROM messages WHERE id = ?", (message_id,))
+    msg = cursor.fetchone()
+    if not msg:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Message not found")
+    chat_id, sender_id = msg[0], msg[1]
+    if user["id"] != sender_id:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Only sender can edit message")
+    # Update content
+    new_text = payload.get("new_message")
+    if not new_text:
+        conn.close()
+        raise HTTPException(status_code=400, detail="New message content required")
+    cursor.execute("UPDATE messages SET content = ? WHERE id = ?", (new_text, message_id))
+    conn.commit()
+    conn.close()
+    # Broadcast update via WebSocket
+# Broadcast update via WebSocket
+    await manager.broadcast({"type": "message_refactor", "message_id": message_id, "new_content": new_text}, chat_id)
+    return {"detail": "Message updated"}
