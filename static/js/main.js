@@ -1,10 +1,14 @@
 import { showNotification, enableMessaging, disableMessaging } from './modules/ui.js';
 import { formatTimestamp, fetchAndUpdateContactPreview } from './modules/utils.js';
 import { ensureAuthenticated, getToken, removeToken, getAuthHeaders, getCurrentUserId } from './modules/auth.js';
+import { loadMessages, sendMessage, displayMessage, initMessageModule, updateMessageState, editMessage, deleteMessage } from './modules/message.js';
+import { initWebSocketModule, updateChatState, connectChatWebSocket, getChatWebSocket, sendWebSocketMessage, closeAllConnections } from './modules/websocket.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     const token = ensureAuthenticated();
     if (!token) return;
+
+    const displayedMessages = new Set();
 
     let addUserContext = 'contacts';
 
@@ -79,22 +83,17 @@ document.addEventListener('DOMContentLoaded', function() {
     let editingMessageId = null;
     const originalSendButtonHTML = sendButton.innerHTML;
 
-    // Disable message input and buttons on initial load
-    disableMessaging();
-    
-
     const currentUser = {
         name: 'You',
         avatar: '/static/images/avatar.png'
     };
+    
 
-    // Хранилище для идентификаторов отображённых сообщений
-    const displayedMessages = new Set();
-
-
+    // Disable message input and buttons on initial load
+    disableMessaging();
+    
     async function loadGroupMembers(groupId) {
         try {
-            // Запрос с расширением, чтобы получить creator_id (нужно добавить на сервере)
             const groupResponse = await fetch(`/user/groups`, {
                 headers: getAuthHeaders()
             });
@@ -125,7 +124,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 memberElement.classList.add('contactInGroupInfo');
                 memberElement.setAttribute('data-id', member.id);
     
-                // Добавляем иконку удаления, если текущий пользователь — создатель и не этот участник
                 const canRemove = currentUserId === currentGroupCreatorId && member.id !== currentUserId;
     
                 memberElement.innerHTML = `
@@ -143,7 +141,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 usersList.appendChild(memberElement);
             });
     
-            // Добавляем обработчики клика по кнопкам удаления
             document.querySelectorAll('.remove-member-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -169,7 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
         usernameElem.textContent = username;
         modal.classList.remove('hidden');
     
-        // Отвязываем предыдущие обработчики, чтобы не накапливались
         cancelBtn.onclick = () => {
             modal.classList.add('hidden');
         };
@@ -208,20 +204,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.querySelector('.profile-info h3').textContent = userData.username;
                 document.querySelector('.profile-info p').textContent = userData.email || '';
                 
-                // Обновляем аватар в боковом меню
                 const profileAvatarImg = document.querySelector('.profile-avatar img');
                 if (profileAvatarImg && userData.avatar) {
-                    profileAvatarImg.src = userData.avatar; // Путь уже будет /static/images/...
+                    profileAvatarImg.src = userData.avatar;
                 }
     
-                // Обновляем поля редактирования профиля
                 if (editUsernameInput) editUsernameInput.value = userData.username;
                 if (editEmailInput) editEmailInput.value = userData.email || '';
                 if (editAvatarImg && userData.avatar) {
-                    editAvatarImg.src = userData.avatar; // Путь уже будет /static/images/...
+                    editAvatarImg.src = userData.avatar;
                 }
     
-                // Обновляем текущего пользователя для отображения сообщений
                 currentUser.avatar = userData.avatar || '/static/images/avatar.png';
             } else {
                 console.error("Failed to load user profile:", response.status);
@@ -234,11 +227,10 @@ document.addEventListener('DOMContentLoaded', function() {
         editAvatarInput.click();
     });
     
-    // Когда пользователь выбрал файл
     editAvatarInput.addEventListener('change', () => {
         const file = editAvatarInput.files[0];
         const allowedExtensions = ['png', 'jpg', 'jpeg', 'gif'];
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 5 * 1024 * 1024;
         const ext = file.name.split('.').pop().toLowerCase();
         if (file && file.type.startsWith('image/') && allowedExtensions.includes(ext)) {
             if (file.size > maxSize) {
@@ -259,7 +251,6 @@ document.addEventListener('DOMContentLoaded', function() {
     },
 );
 
-    // Function to update the last message preview for a contact in the sidebar
     function updateContactPreview(contactElement) {
         const lastMsgBubble = messageContainer.querySelector('.message:last-child .message-bubble');
         if (!lastMsgBubble) return;
@@ -358,7 +349,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         document.querySelector('.current-contact .contact-info h3').textContent = contactName;
                         document.querySelector('.current-contact .contact-avatar img').src = contactImg;
                         
-                        reconnectWebSocket();
+                        updateChatState({
+                            chatId: currentChatId,
+                            contactAvatar: currentContactAvatar
+                        });
+                        
+                        updateMessageState({
+                            currentChatId: currentChatId,
+                            currentContactAvatar: currentContactAvatar
+                        });
+
                         loadMessages();
                         enableMessaging();
                     } catch (error) {
@@ -377,270 +377,76 @@ document.addEventListener('DOMContentLoaded', function() {
         await loadGroups();
     }
     
-    // Update reconnectWebSocket to use currentChatId
-    function reconnectWebSocket() {
-        if (!currentChatId) {
-            console.log("No chat ID available, skipping WebSocket connection");
-            return;
-        }
-        if (ws) {
-            ws.onclose = null;
-            ws.close();
-        }
-        ws = new WebSocket(`ws://${window.location.host}/ws/${currentChatId}?token=${getToken()}`);
-        ws.onopen = () => {
-            console.log("WebSocket connection established for chat:", currentChatId);
-            // После открытия ws отправляем read для всех входящих непрочитанных сообщений
-            if (unreadToMark && unreadToMark.length > 0) {
-                unreadToMark.forEach(mid => {
-                    ws.send(JSON.stringify({ type: "read", message_id: mid }));
-                });
-                unreadToMark = [];
-            }
-        };
+    initWebSocketModule({
+        messageContainer: messageContainer,
+        contactsList: contactsList,
+        currentUser: currentUser,
         
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'message') {
-                console.log("Message event data:", data);
-                const currentUserId = getCurrentUserId();
-                const isOutgoing = data.sender_id === currentUserId;
-                displayMessage(
-                    data.id,
-                    data.content,
-                    data.sender_username,
-                    isOutgoing ? currentUser.avatar : currentContactAvatar,
-                    isOutgoing,
-                    data.timestamp,
-                    'message',
-                    data.status
-                );
-                // NEW: если входящее сообщение и чат открыт, сразу отправить read
-                if (!isOutgoing && ws && ws.readyState === WebSocket.OPEN && data.id) {
-                    ws.send(JSON.stringify({ type: "read", message_id: data.id }));
+        onMessageRead: (messageId) => {
+            const msgElem = messageContainer.querySelector(`[data-message-id="${messageId}"]`);
+            if (msgElem) {
+                const statusSpan = msgElem.querySelector('.message-status');
+                if (statusSpan) {
+                    statusSpan.innerHTML = '<ion-icon name="checkmark-done" style="color: #25d366; font-size: 18px; vertical-align: middle;"></ion-icon>';
+                    statusSpan.title = 'Read';
                 }
-
-                // For both sender and receiver, move the chat up and update preview
-                const contactId = isOutgoing ? data.receiver_id : data.sender_id;
-                const contactEl = document.querySelector(`.contact[data-id="${contactId}"]`);
-                if (contactEl) {
-                    // Move the contact to the top of the list
-                    contactsList.prepend(contactEl);
-                    // Fetch and update preview to include this new message
-                    fetchAndUpdateContactPreview(contactEl, contactId);
-                }
-            } else if (data.type === 'message_read') {
-                // Обновить статус сообщения на галочку (прочитано)
-                const msgElem = messageContainer.querySelector(`[data-message-id="${data.message_id}"]`);
-                if (msgElem) {
-                    const statusSpan = msgElem.querySelector('.message-status');
-                    if (statusSpan) {
-                        statusSpan.innerHTML = '<ion-icon name="checkmark-done" style="color: #25d366; font-size: 18px; vertical-align: middle;"></ion-icon>';
-                        statusSpan.title = 'Read';
-                    }
-                }
-            } else if (data.type === 'user_list') {
-                // Update online status of contacts
-                data.users.forEach(u => {
-                    const el = document.querySelector(`.contact[data-id="${u.id}"]`);
-                    if (el) {
-                        el.querySelector('.contact-status').classList.replace('offline','online');
-                    }
-                });
             }
-            // Новая ветка для глобального presence
-            else if (data.type === 'presence') {
-                const el = document.querySelector(`.contact[data-id="${data.user_id}"] .contact-status`);
+        },
+        onMessageDeleted: (messageId) => {
+            const deletedElem = messageContainer.querySelector(`[data-message-id="${messageId}"]`);
+            if (deletedElem) deletedElem.remove();
+        },
+        onMessageRefactor: (messageId, newContent) => {
+            const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+            if (messageEl) {
+                const bubble = messageEl.querySelector('.message-bubble');
+                const p = bubble.querySelector('p');
+                if (p) {
+                    p.textContent = newContent;
+                }
+            }
+        },
+        onUserListUpdate: (users) => {
+            users.forEach(u => {
+                const el = document.querySelector(`.contact[data-id="${u.id}"]`);
                 if (el) {
-                    el.classList.replace(data.status === 'online' ? 'offline' : 'online', data.status);
+                    el.querySelector('.contact-status').classList.replace('offline','online');
                 }
-            }
-            // Handle deletion of a message
-            else if (data.type === 'message_deleted') {
-                const deletedElem = messageContainer.querySelector(`[data-message-id="${data.message_id}"]`);
-                if (deletedElem) deletedElem.remove();
-            }
-            // Handle refactoring of a message
-            else if (data.type === 'message_refactor') {
-                const messageEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
-                if (messageEl) {
-                    const bubble = messageEl.querySelector('.message-bubble');
-                    const p = bubble.querySelector('p');
-                    if (p) {
-                        p.textContent = data.new_content;
-                    }
-                }
-            }
-        };
-        
-        ws.onclose = (event) => {
-            console.log("WebSocket connection closed:", event);
-            // Automatic reconnection removed to prevent reconnect loop
-        };
-        
-        ws.onerror = (error) => {
-            console.error("WebSocket error:", error);
-        };
-    }
- 
-    // …после reconnectWebSocket()/ws.onmessage…
-    const notifSocket = new WebSocket(`ws://${window.location.host}/ws/notifications?token=${getToken()}`);
-    notifSocket.onmessage = evt => {
-        const data = JSON.parse(evt.data);
-        if (data.type === 'contacts_update') {
-            loadContacts();
-        } else if (data.type === 'new_message') {
-            // Handle new message notifications - move chat to top and update preview
-            const contactId = data.sender_id;
-            const contactElement = document.querySelector(`.contact[data-id="${contactId}"]`);
-            
-            if (contactElement) {
-                // Move chat to top of the list
-                contactsList.prepend(contactElement);
-                
-                // Use the existing updateContactPreview function
-                // First create a temporary message element to simulate having the message in the DOM
-                const tempMsg = document.createElement('div');
-                tempMsg.classList.add('message', 'incoming');
-                
-                const msgBubble = document.createElement('div');
-                msgBubble.classList.add('message-bubble');
-                
-                // Process message content (handle media or text)
-                if (/\[Media: (.*?)\]/.test(data.content)) {
-                    if (/\.(jpg|jpeg|png|gif)$/i.test(data.content)) {
-                        const img = document.createElement('img');
-                        img.classList.add('message-media');
-                        msgBubble.appendChild(img);
-                    } else if (/\.(mp4|webm|ogg)$/i.test(data.content)) {
-                        const video = document.createElement('video');
-                        video.classList.add('message-media');
-                        msgBubble.appendChild(video);
-                    }
-                } else {
-                    const p = document.createElement('p');
-                    p.textContent = data.content;
-                    msgBubble.appendChild(p);
-                }
-                
-                tempMsg.appendChild(msgBubble);
-                
-                // Temporarily append to message container (but hidden)
-                tempMsg.style.display = 'none';
-                messageContainer.appendChild(tempMsg);
-                
-                // Now update the preview using the existing function
-                updateContactPreview(contactElement);
-                
-                // Remove the temporary element
-                messageContainer.removeChild(tempMsg);
-            }
-        }
-        // Новая ветка для глобального presence
-        else if (data.type === 'presence') {
-            const el = document.querySelector(`.contact[data-id="${data.user_id}"] .contact-status`);
+            });
+        },
+        onPresenceChange: (userId, status) => {
+            const el = document.querySelector(`.contact[data-id="${userId}"] .contact-status`);
             if (el) {
-                el.classList.replace(data.status === 'online' ? 'offline' : 'online', data.status);
+                el.classList.replace(status === 'online' ? 'offline' : 'online', status);
             }
         }
-    };
-    notifSocket.onerror = e => console.error('Notifications WS error', e);
-    notifSocket.onclose = () => console.log('Notifications WS closed');
-
-    async function loadMessages() {
-        try {
-            if (!currentChatId) {
-                console.log("No chat selected");
-                return;
-            }
-            console.log("Loading messages for chat_id:", currentChatId);
-            const response = await fetch(`/messages/${currentChatId}`, {
-                headers: getAuthHeaders()
-            });
-            if (!response.ok) {
-                if (response.status === 401) {
-                    console.log("Unauthorized, redirecting to login");
-                    removeToken();
-                    window.location.href = "/";
-                    return;
-                }
-                throw new Error(`Failed to fetch messages: ${response.status} ${response.statusText}`);
-            }
-            const messages = await response.json();
-            console.log("Loaded messages:", messages);
-            messageContainer.innerHTML = "";
-            displayedMessages.clear();
+    });
     
-            const currentUserId = getCurrentUserId();
-            unreadToMark = [];
-            messages.forEach(msg => {
-                const isOutgoing = msg.sender_id === currentUserId;
-                displayMessage(
-                    msg.id,
-                    msg.content,
-                    msg.sender_username,
-                    msg.sender_avatar || (isOutgoing ? currentUser.avatar : currentContactAvatar),
-                    isOutgoing,
-                    msg.timestamp,
-                    "message",
-                    msg.status
-                );
-                // Если входящее и не прочитано — добавить в список для отметки
-                if (!isOutgoing && msg.status === 0) {
-                    unreadToMark.push(msg.id);
-                }
-            });
-            // Отправить событие read для всех непрочитанных
-            if (ws && ws.readyState === WebSocket.OPEN && unreadToMark.length > 0) {
-                unreadToMark.forEach(mid => {
-                    ws.send(JSON.stringify({ type: "read", message_id: mid }));
-                });
-                unreadToMark = [];
-            }
-        } catch (error) {
-            console.error("Error loading messages:", error);
-        }
-    }
+    initMessageModule({
+        messageContainer: messageContainer,
+        currentUser: currentUser,
+        displayedMessages: displayedMessages
+    });
 
-    let ws = null;
-    let unreadToMark = [];
+    window.addEventListener('contacts_update', () => {
+        loadContacts();
+    });
+    
     sendButton.addEventListener("click", async () => {
         const content = messageInput.value.trim();
         
-        // Check if we're in editing mode
         if (editingMessageId) {
             if (content) {
-                // Update the message
-                try {
-                    const response = await fetch(`/messages/${editingMessageId}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...getAuthHeaders()
-                        },
-                        body: JSON.stringify({ new_message: content })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error('Failed to update message');
-                    }
-                    
-                    showNotification('Message updated successfully');
-                    
-                    // UI will update via websocket, but can also update manually here
-                    // if needed for instant feedback
-                } catch (error) {
-                    console.error('Error updating message:', error);
+                const success = await editMessage(editingMessageId, content);
+                if (!success) {
                     showNotification('Failed to update message');
                 }
             }
             
-            // Cancel editing mode regardless of success
             cancelEditing();
             return;
         }
         
-        // Regular send message functionality
         if (!currentChatId) {
             console.log("No contact selected");
             return;
@@ -652,7 +458,6 @@ document.addEventListener('DOMContentLoaded', function() {
             mediaPreviewContainer.classList.add('hidden');
             mediaPreviewContent.innerHTML = '';
             selectedMedia.length = 0;
-            // Move chat up and update preview immediately after sending
             const activeContact = document.querySelector('.contact.active');
             if (activeContact) {
                 contactsList.prepend(activeContact);
@@ -665,7 +470,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.key === 'Enter') {
             e.preventDefault();
             
-            // If we're editing, handle like the save button
             if (editingMessageId) {
                 const content = messageInput.value.trim();
                 if (content) {
@@ -688,12 +492,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
                 
-                // Cancel editing mode regardless of success
                 cancelEditing();
                 return;
             }
             
-            // Regular send message functionality
             const content = messageInput.value.trim();
             if (content || selectedMedia.length > 0) {
                 await sendMessage(content, selectedMedia);
@@ -704,134 +506,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-
-    // Изменяем функцию отправки сообщения для поддержки загрузки медиа
-    async function sendMessage(message, mediaFiles = []) {
-        try {
-            // Сначала загружаем все медиа на сервер (если они есть)
-            const uploadedMedia = [];
-            
-            if (mediaFiles.length > 0) {
-                const formData = new FormData();
-                
-                // Добавляем все файлы в FormData
-                for (let i = 0; i < mediaFiles.length; i++) {
-                    formData.append('files', mediaFiles[i]);
-                }
-                
-                // Загружаем файлы на сервер
-                const uploadResponse = await fetch(`/upload-media/${currentChatId}`, {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: formData
-                });
-                
-                if (!uploadResponse.ok) {
-                    throw new Error('Failed to upload media files');
-                }
-                
-                // Получаем информацию о загруженных файлах
-                const uploadResult = await uploadResponse.json();
-                uploadedMedia.push(...uploadResult.files);
-            }
-            
-            // Новая логика отправки через WebSocket
-            if (ws.readyState === WebSocket.OPEN) {
-                if (uploadedMedia.length > 0) {
-                    // Display each media and text message as sent
-                    if (uploadedMedia.length === 1) {
-                        const mediaTag = ` [Media: ${uploadedMedia[0]}]`;
-                        const contentWithMedia = (message || '') + mediaTag;
-                        // displayMessage(null, contentWithMedia, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
-                        ws.send(JSON.stringify({ content: contentWithMedia, type: "message" }));
-                    } else {
-                        uploadedMedia.forEach((file, index) => {
-                            const mediaTag = ` [Media: ${file}]`;
-                            const contentForThis = index === uploadedMedia.length - 1 ? (message || '') + mediaTag : mediaTag;
-                            // displayMessage(null, contentForThis, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
-                            ws.send(JSON.stringify({ content: contentForThis, type: "message" }));
-                        });
-                    }
-                } else if (message) {
-                    // displayMessage(null, message, currentUser.name, currentUser.avatar, true, new Date().toISOString(), 'message');
-                    ws.send(JSON.stringify({ content: message, type: "message" }));
-                }
-            } else {
-                console.error("WebSocket is not open, cannot send message");
-                showNotification("Ошибка соединения. Пожалуйста, обновите страницу.");
-            }
-        } catch (error) {
-            console.error("Send message error:", error);
-            showNotification("Не удалось отправить сообщение. Пожалуйста, попробуйте еще раз.");
-        }
-    }
-
-    function displayMessage(messageId, message, senderName, senderAvatar, isOutgoing, timestamp, type, status) {
-        if (messageId && displayedMessages.has(messageId)) {
-            console.log("Message already displayed, skipping:", messageId);
-            return;
-        }
-        if (messageId) {
-            displayedMessages.add(messageId);
-        }
-
-        console.log("Displaying message:", message, "from:", senderName, "isOutgoing:", isOutgoing, "type:", type);
-        const messageElement = document.createElement('div');
-        if (type === "system") {
-            messageElement.classList.add('message', 'system');
-            messageElement.innerHTML = `
-                <div class="message-bubble">
-                    <p>${message}</p>
-                    <span class="message-time">${formatTimestamp(timestamp)}</span>
-                </div>
-            `;
-        } else {
-            messageElement.classList.add('message', isOutgoing ? 'outgoing' : 'incoming');
-            let mediaHTML = '';
-            const mediaRegex = /\[Media: (.*?)\]/g;
-            let textContent = message;
-            const mediaMatches = message.match(mediaRegex);
-            if (mediaMatches) {
-                mediaMatches.forEach(match => {
-                    const fileName = match.match(/\[Media: (.*?)\]/)[1];
-                    const isImage = fileName.match(/\.(jpg|jpeg|png|gif)$/i);
-                    const isVideo = fileName.match(/\.(mp4|webm|ogg)$/i);
-                    if (isImage) {
-                        mediaHTML += `<img src="/static/media/${fileName}" alt="Media" class="message-media">`;
-                    } else if (isVideo) {
-                        mediaHTML += `<video src="/static/media/${fileName}" controls class="message-media"></video>`;
-                    }
-                    textContent = textContent.replace(match, '');
-                });
-            }
-            const textHTML = textContent.trim() ? `<p>${textContent}</p>` : '';
-            let statusIcon = '';
-            if (isOutgoing) {
-                if (status === 1) {
-                    statusIcon = `<span class="message-status" title="Read"><ion-icon name="checkmark-done" style="color: #25d366; font-size: 18px; vertical-align: middle;"></ion-icon></span>`;
-                } else {
-                    statusIcon = `<span class="message-status" title="Delivered"><ion-icon name="checkmark-outline" style="color: #b0b0b0; font-size: 18px; vertical-align: middle;"></ion-icon></span>`;
-                }
-            }
-            messageElement.innerHTML = `
-                <div class="message-avatar">
-                    <img src="${senderAvatar}" alt="${senderName}">
-                </div>
-                <div class="message-bubble">
-                    <div class="message-sender">${senderName}</div>
-                    ${mediaHTML}
-                    ${textHTML}
-                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
-                        <span class="message-time">${formatTimestamp(timestamp)}</span>
-                        ${statusIcon}
-                    </div>
-                </div>
-            `;
-            if (messageId) messageElement.setAttribute('data-message-id', messageId);
-        }
-        messageContainer.appendChild(messageElement);
-        messageContainer.scrollTop = messageContainer.scrollHeight;
-    }
 
     addUserButton.addEventListener('click', () => {
         addUserContext = 'contacts';
@@ -849,7 +523,6 @@ document.addEventListener('DOMContentLoaded', function() {
         newContactNameInput.value = '';
     });
 
-    // Обновление функционала добавления контакта
     addContactBtn.addEventListener('click', async () => {
     const usernameToAdd = newContactNameInput.value.trim();
     if (!usernameToAdd) {
@@ -858,7 +531,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (addUserContext === 'contacts') {
-        // Добавление в контакты
         try {
             const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(usernameToAdd)}`, {
                 headers: getAuthHeaders()
@@ -876,7 +548,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
             const userToAdd = searchResults[0];
     
-            // Получаем текущего пользователя с сервера
             const profileResponse = await fetch('/user/profile', {
                 headers: getAuthHeaders()
             });
@@ -922,13 +593,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
     } else if (addUserContext === 'group-members') {
-        // Добавление в группу
         if (!currentChatId) {
             showNotification("Группа не выбрана.");
             return;
         }
         try {
-            // Поиск пользователя
             const searchResponse = await fetch(`/users/search?query=${encodeURIComponent(usernameToAdd)}`, {
                 headers: getAuthHeaders()
             });
@@ -955,7 +624,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const userToAdd = searchResults[0];
 
-            // Добавляем в группу
             const addResponse = await fetch(`/groups/${currentChatId}/add-members`, {
                 method: 'POST',
                 headers: {
@@ -1028,7 +696,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(errorData.detail || "Ошибка создания группы");
             }
     
-            // Вместо создания элемента вручную просто обновим список групп
             await loadGroups();
     
             addGroupContainer.classList.add('hidden');
@@ -1066,7 +733,6 @@ document.addEventListener('DOMContentLoaded', function() {
         editProfileContainer.classList.add('hidden');
     });
 
-    // В обработчике сохранения профиля корректно перезаписываем token:
     saveProfileBtn.addEventListener('click', async function() {
         const username = editUsernameInput.value.trim();
         const email = editEmailInput.value.trim();
@@ -1075,11 +741,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!username || !email) return showNotification("Заполните все поля");
     
         try {
-            // Если есть выбранный файл аватара, загружаем его отдельно
             let avatarUrl = null;
             if (selectedAvatarFile) {
                 const formData = new FormData();
-                formData.append('file', selectedAvatarFile); // Сервер ожидает поле 'file', а не 'avatar'
+                formData.append('file', selectedAvatarFile);
     
                 const uploadResponse = await fetch('/user/upload-avatar', {
                     method: 'POST',
@@ -1097,7 +762,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 avatarUrl = uploadData.avatar_url;
             }
     
-            // Отправляем обновлённые данные профиля
             const bodyData = { username, email };
             if (password) bodyData.password = password;
             if (avatarUrl) bodyData.avatar = avatarUrl;
@@ -1114,7 +778,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || res.statusText);
     
-            // Обновляем UI
             document.querySelector('.profile-info h3').textContent = data.username;
             document.querySelector('.profile-info p').textContent = data.email;
             if (data.avatar) {
@@ -1134,7 +797,6 @@ document.addEventListener('DOMContentLoaded', function() {
             loadMessages();
 
     
-            // Сбрасываем выбранный файл
             selectedAvatarFile = null;
             editAvatarInput.value = '';
         } catch (e) {
@@ -1162,7 +824,6 @@ document.addEventListener('DOMContentLoaded', function() {
         groupUserMenu.classList.remove('active');
     
         if (isGroupChat) {
-            // Обновляем имя группы в меню
             const groupNameElement = document.getElementById('group-name');
             if (groupNameElement) {
                 groupNameElement.textContent = currentContactUsername || '';
@@ -1213,17 +874,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             showNotification('Вы вышли из группы');
     
-            // Обновляем список контактов и групп
             await loadContacts();
             loadMessages();
     
-            // Сбрасываем текущий чат
             currentChatId = null;
             currentContactUsername = null;
             messageContainer.innerHTML = '';
             disableMessaging();
     
-            // Закрываем меню
             groupUserMenu.classList.remove('active');
             setTimeout(() => {
                 groupUserMenu.classList.add('hidden');
@@ -1319,35 +977,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(err.detail || 'Failed to delete chat');
             }
     
-            // Clear message container
             messageContainer.innerHTML = '';
     
-            // Reset header
             document.querySelector('.current-contact .contact-info h3').textContent = '';
             document.querySelector('.current-contact .contact-info p').textContent = '';
             const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
             if (headerAvatar) {
-                headerAvatar.src = '/static/images/avatar.png'; // Default avatar
-                headerAvatar.style.visibility = 'hidden'; // Already done in disableMessaging, but ensure consistency
+                headerAvatar.src = '/static/images/avatar.png';
+                headerAvatar.style.visibility = 'hidden';
             }
     
-            // Reset chat state
             currentChatId = null;
             currentContactUsername = null;
             currentContactAvatar = null;
     
-            // Close WebSocket if open
+            const ws = getChatWebSocket();
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.close();
-                ws = null;
             }
     
-            // Remove active class from contact
             if (activeContact) {
                 activeContact.classList.remove('active');
             }
     
-            // Update UI
             showNotification('Чат удалён');
             disableMessaging();
             await loadContacts();
@@ -1401,10 +1053,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('logout').addEventListener('click', function() {
         const token = getToken();
         removeToken();
-        // Закрываем WebSocket соединения для обновления статуса присутствия
-        if (typeof ws !== 'undefined' && ws) ws.close();
-        if (typeof notifSocket !== 'undefined' && notifSocket) notifSocket.close();
-        // Переходим на страницу logout с сохранённым токеном
+        closeAllConnections();
         window.location.replace(`/logout?token=${token}`);
     });
 
@@ -1422,7 +1071,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     editGroupProfileBtn.addEventListener('click', () => {
-        // Заполняем текущие значения
         editGroupNameInput.value = currentContactUsername || '';
         editGroupAvatarImg.src = document.querySelector('.current-contact .contact-avatar img').src || '/static/images/group.png';
         selectedGroupAvatarFile = null;
@@ -1440,12 +1088,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     });
     
-    // Клик по аватару — открываем выбор файла
     editGroupAvatarImg.addEventListener('click', () => {
         editGroupAvatarInput.click();
     });
     
-    // Выбор файла аватара
     editGroupAvatarInput.addEventListener('change', () => {
         const file = editGroupAvatarInput.files[0];
         const allowedExtensions = ['png', 'jpg', 'jpeg', 'gif'];
@@ -1494,7 +1140,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const data = await response.json();
     
-            // Обновляем UI
             document.querySelector('.current-contact .contact-info h3').textContent = data.name;
             document.querySelector('.current-contact .contact-avatar img').src = data.avatar || '/static/images/group.png';
 
@@ -1511,7 +1156,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
             showNotification('Профиль группы обновлен');
     
-            // Закрываем модал
             editGroupProfileContainer.classList.remove('active');
             setTimeout(() => {
                 editGroupProfileContainer.classList.add('hidden');
@@ -1655,8 +1299,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!response.ok) throw new Error("Не удалось загрузить группы");
             const groups = await response.json();
     
-            // НЕ очищаем contactsList, просто добавляем новые группы
-    
             groups.forEach(group => {
                 if (contactsList.querySelector(`.contact.group[data-group-id="${group.id}"]`)) {
                     return;
@@ -1683,7 +1325,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentChatId = group.id;
                     currentContactUsername = group.name;
             
-                    // Обновляем хедер
                     document.querySelector('.current-contact .contact-info h3').textContent = group.name;
                     document.querySelector('.current-contact .contact-info p').textContent = 'Group';
                     const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
@@ -1692,7 +1333,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         headerAvatar.style.visibility = 'visible';
                     }
             
-                    // Обновляем меню группы — имя и аватар
                     const groupNameElement = document.getElementById('group-name');
                     if (groupNameElement) {
                         groupNameElement.textContent = group.name;
@@ -1702,7 +1342,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         groupAvatarImg.src = group.avatar || '/static/images/group.png';
                     }
             
-                    reconnectWebSocket();
+                    updateChatState({
+                        chatId: currentChatId,
+                        contactAvatar: group.avatar || '/static/images/group.png'
+                    });
+                    
+                    updateMessageState({
+                        currentChatId: currentChatId,
+                        currentContactAvatar: group.avatar || '/static/images/group.png'
+                    });
+
                     loadMessages();
                     enableMessaging();
                     loadGroupMembers(currentChatId);
@@ -1771,7 +1420,6 @@ document.addEventListener('DOMContentLoaded', function() {
     loadUserProfile();
     loadContacts().then(initPresence);
 
-    // Добавляем функцию инициализации глобального присутствия
     async function initPresence() {
         try {
             const res = await fetch('/users/online', { headers: getAuthHeaders() });
@@ -1787,10 +1435,8 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) { console.error(e); }
     }
 
-    // Custom context menu for messages
     messageContainer.addEventListener('contextmenu', function(e) {
         const messageEl = e.target.closest('.message');
-        // only allow context menu on own (outgoing) messages
         if (!messageEl || !messageEl.classList.contains('outgoing')) return;
         e.preventDefault();
         const menu = document.getElementById('message-menu');
@@ -1807,31 +1453,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Edit message action
     document.getElementById('edit-message-btn').addEventListener('click', function() {
         const menu = document.getElementById('message-menu');
         const messageEl = menu.currentMessageEl;
         if (!messageEl) return;
         
-        // Get the message content and ID
         const bubble = messageEl.querySelector('.message-bubble');
         const p = bubble.querySelector('p');
         const originalText = p ? p.textContent : '';
         const msgId = messageEl.getAttribute('data-message-id');
         
-        // Put the text in the message input
         messageInput.value = originalText;
         messageInput.focus();
         
-        // Track that we're editing and which message
         editingMessageId = msgId;
         editingMessageEl = messageEl;
         
-        // Change the send button to update button
         sendButton.innerHTML = '<ion-icon name="checkmark-outline"></ion-icon>';
         sendButton.classList.add('editing');
         
-        // Show a cancel button next to the input
         if (!document.getElementById('cancel-edit-input-btn')) {
             const cancelBtn = document.createElement('button');
             cancelBtn.id = 'cancel-edit-input-btn';
@@ -1840,44 +1480,33 @@ document.addEventListener('DOMContentLoaded', function() {
             cancelBtn.title = 'Cancel editing';
             cancelBtn.addEventListener('click', cancelEditing);
             
-            // Insert before the send button
             sendButton.parentNode.insertBefore(cancelBtn, sendButton);
         }
         
-        // Hide the context menu
         menu.classList.add('hidden');
     });
 
-    // Function to cancel editing
     function cancelEditing() {
-        // Restore send button
         sendButton.innerHTML = originalSendButtonHTML;
         sendButton.classList.remove('editing');
         
-        // Clear message input
         messageInput.value = '';
         
-        // Remove the editing state
         editingMessageId = null;
         editingMessageEl = null;
         
-        // Remove cancel button
         const cancelBtn = document.getElementById('cancel-edit-input-btn');
         if (cancelBtn) cancelBtn.remove();
         
-        // Remove editing indicator
         const indicator = document.getElementById('editing-indicator');
         if (indicator) indicator.remove();
     }
 
-    // Delete message action
     document.getElementById('delete-message-btn').addEventListener('click', function() {
         const menu = document.getElementById('message-menu');
         const messageEl = menu.currentMessageEl;
         const msgId = messageEl.getAttribute('data-message-id');
-        if (msgId && ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'message_deleted', message_id: parseInt(msgId) }));
-        }
+        deleteMessage(msgId);
         menu.classList.add('hidden');
     });
 });
