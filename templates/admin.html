@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Admin Panel</title>
+  <style>
+    body { background: #222; color: white; font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+    button { background: #e74c3c; color: white; border: none; padding: 6px 12px; cursor: pointer; }
+    button:hover { background: #c0392b; }
+    input, button[type="submit"] { padding: 6px; margin-right: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Admin Panel</h1>
+
+  <section>
+    <h2>Users</h2>
+    <table id="users-table">
+      <thead>
+        <tr><th>ID</th><th>Username</th><th>Actions</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <p id="chat-count" style="margin-top: 10px; font-weight: bold;">Loading chat count...</p>
+
+
+  <section>
+    <h2>Online Users Between Dates</h2>
+    <form id="online-form">
+      <label>Start date: <input type="date" id="start-date" required></label>
+      <label>End date: <input type="date" id="end-date" required></label>
+      <button type="submit">Show</button>
+    </form>
+    <p id="online-count"></p>
+  </section>
+  <section>
+    <table id="online-users-table" style="margin-top: 10px; width: 100%; border-collapse: collapse; display: none;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Last Active</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+  </section>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login as admin first');
+      window.location.href = '/';
+    }
+
+    async function fetchUsers() {
+      const res = await fetch('/admin/users', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!res.ok) {
+        alert('Error fetching users');
+        return;
+      }
+      const users = await res.json();
+      const tbody = document.querySelector('#users-table tbody');
+      tbody.innerHTML = '';
+      users.forEach(user => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.id}</td>
+          <td>${user.username}</td>
+          <td><button data-id="${user.id}">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Добавляем обработчики кнопок удаления
+      tbody.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete user ' + btn.dataset.id + '?')) return;
+          const res = await fetch('/admin/users/' + btn.dataset.id, {
+            method: 'DELETE',
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (res.ok) {
+            alert('User deleted');
+            fetchUsers();
+          } else {
+            alert('Failed to delete user');
+          }
+        });
+      });
+    }
+
+    document.getElementById('online-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const start = document.getElementById('start-date').value;
+      const end = document.getElementById('end-date').value;
+      if (start > end) {
+        alert('Start date must be before end date');
+        return;
+      }
+      const res = await fetch(`/admin/online?start=${start}&end=${end}`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!res.ok) {
+        alert('Failed to fetch online count');
+        return;
+      }
+      const data = await res.json();
+      document.getElementById('online-count').textContent = `Users online: ${data.online_count}`;
+      document.getElementById('online-users-table').style.display = 'block';
+      const tbody = document.querySelector('#online-users-table tbody');
+      tbody.innerHTML = '';
+      data.online_users.forEach(user => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.id}</td>
+          <td>${user.username}</td>
+          <td>${user.last_active}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+    async function fetchChatCount() {
+  try {
+    const res = await fetch('/admin/count_chats', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Failed to fetch chat count');
+    const data = await res.json();
+    document.getElementById('chat-count').textContent = `Total chats: ${data.count}`;
+  } catch (e) {
+    document.getElementById('chat-count').textContent = 'Error loading chat count';
+    console.error(e);
+  }
+}
+
+
+    fetchUsers();
+    fetchChatCount();
+  </script>
+</body>
+</html>

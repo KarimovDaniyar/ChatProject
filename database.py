@@ -1,3 +1,4 @@
+from datetime import datetime
 import sqlite3
 from typing import List
 from passlib.context import CryptContext
@@ -11,6 +12,13 @@ def init_db():
     cursor = conn.cursor()
     
     # Create tables if they don't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_activity (
+            user_id INTEGER PRIMARY KEY,
+            last_active TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -360,3 +368,59 @@ def search_users(query, current_user_id):
     users = cursor.fetchall()
     conn.close()
     return [dict(user) for user in users]
+
+def update_user_activity(user_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    cursor.execute("""
+        INSERT INTO user_activity (user_id, last_active)
+        VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET last_active=excluded.last_active
+    """, (user_id, now))
+    conn.commit()
+    conn.close()
+
+def delete_user(user_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+def get_online_users_list(start: str, end: str) -> List[dict]:
+    """
+    Возвращает список пользователей, которые были активны между start и end.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.username, u.avatar, ua.last_active
+        FROM user_activity ua
+        JOIN users u ON ua.user_id = u.id
+        WHERE ua.last_active BETWEEN ? AND ?
+        ORDER BY ua.last_active DESC
+    """, (start, end))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def count_online_users(start: str, end: str) -> int:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT COUNT(DISTINCT user_id) as online_count
+        FROM user_activity
+        WHERE last_active BETWEEN ? AND ?
+    """, (start, end))
+    row = cursor.fetchone()
+    conn.close()
+    return row["online_count"] if row else 0
+
+def count_all_chats()-> int:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*)/2 FROM chats WHERE is_group = 0")
+    row = cursor.fetchone()
+    conn.close()
+    return row[0]
