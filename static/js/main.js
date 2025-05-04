@@ -303,7 +303,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const previewPromises = [];
             contacts.forEach(contact => {
                 const contactElement = document.createElement('div');
-                console.log(contact);
                 contactElement.classList.add('contact');
                 contactElement.setAttribute('data-username', contact.username);
                 contactElement.setAttribute('data-id', contact.id);
@@ -1365,7 +1364,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     
-
     function fetchEmojis() {
         emojiLoading.style.display = 'flex';
         emojiGrid.innerHTML = '';
@@ -1437,13 +1435,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
     messageContainer.addEventListener('contextmenu', function(e) {
         const messageEl = e.target.closest('.message');
-        if (!messageEl || !messageEl.classList.contains('outgoing')) return;
+        if (!messageEl) return;
+        
         e.preventDefault();
         const menu = document.getElementById('message-menu');
         menu.style.top = e.pageY + 'px';
         menu.style.left = e.pageX + 'px';
         menu.classList.remove('hidden');
         menu.currentMessageEl = messageEl;
+        
+        // Get all menu buttons
+        const editBtn = document.getElementById('edit-message-btn');
+        const deleteBtn = document.getElementById('delete-message-btn');
+        const translateBtn = document.getElementById('translate-message-btn');
+        const revertBtn = document.getElementById('revert-message-btn');
+
+        // Reset to hide all buttons before showing relevant ones
+        editBtn.classList.add('hidden');
+        deleteBtn.classList.add('hidden');
+        translateBtn.classList.add('hidden');
+        revertBtn.classList.add('hidden');
+
+        // Check if message has been translated
+        const hasTranslation = messageEl.hasAttribute('data-original-text');
+        
+        // If it's your message (outgoing)
+        if (messageEl.classList.contains('outgoing')) {
+            // Show edit and delete options
+            editBtn.classList.remove('hidden');
+            deleteBtn.classList.remove('hidden');
+        }
+        
+        // Show translate or revert for all messages
+        if (hasTranslation) {
+            revertBtn.classList.remove('hidden');
+        } else {
+            translateBtn.classList.remove('hidden');
+        }
     });
 
     document.addEventListener('click', function(e) {
@@ -1467,7 +1495,6 @@ document.addEventListener('DOMContentLoaded', function() {
         messageInput.focus();
         
         editingMessageId = msgId;
-        editingMessageEl = messageEl;
         
         sendButton.innerHTML = '<ion-icon name="checkmark-outline"></ion-icon>';
         sendButton.classList.add('editing');
@@ -1492,8 +1519,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         messageInput.value = '';
         
-        editingMessageId = null;
-        editingMessageEl = null;
+        editingMessageId = null;;
         
         const cancelBtn = document.getElementById('cancel-edit-input-btn');
         if (cancelBtn) cancelBtn.remove();
@@ -1507,6 +1533,50 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageEl = menu.currentMessageEl;
         const msgId = messageEl.getAttribute('data-message-id');
         deleteMessage(msgId);
+        menu.classList.add('hidden');
+    });
+    document.getElementById('translate-message-btn').addEventListener('click', async function() {
+        const menu = document.getElementById('message-menu');
+        const messageEl = menu.currentMessageEl;
+        if (!messageEl) return;
+        const bubble = messageEl.querySelector('.message-bubble');
+        const p = bubble.querySelector('p');
+        const originalText = p ? p.textContent : '';
+        try {
+            showNotification('Translating...');
+            const isCyrillic = /[\u0400-\u04FF]/.test(originalText);
+            const langpair = isCyrillic ? 'ru|en' : 'en|ru';
+            const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(originalText)}&langpair=${langpair}`);
+            if (!resp.ok) throw new Error('Translation API error');
+            const data = await resp.json();
+            const translated = data.responseData.translatedText;
+            if (p) {
+// Save original text in a data attribute
+                messageEl.dataset.originalText = originalText;
+                p.textContent = translated;
+            }
+        } catch (e) {
+            console.error('Translation failed:', e);
+            showNotification('Translation failed');
+        }
+        menu.classList.add('hidden');
+ });
+
+    document.getElementById('revert-message-btn').addEventListener('click', function() {
+        const menu = document.getElementById('message-menu');
+        const messageEl = menu.currentMessageEl;
+        if (!messageEl) return;
+        const bubble = messageEl.querySelector('.message-bubble');
+        const p = bubble.querySelector('p');
+        const originalText = messageEl.dataset.originalText || '';
+        if (p && originalText) {
+            p.textContent = originalText;
+            // Remove saved original text
+            delete messageEl.dataset.originalText;
+            // Toggle buttons
+            document.getElementById('revert-message-btn').classList.add('hidden');
+            document.getElementById('translate-message-btn').classList.remove('hidden');
+        }
         menu.classList.add('hidden');
     });
 });

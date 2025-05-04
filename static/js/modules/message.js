@@ -148,7 +148,6 @@ export function displayMessage(messageId, message, senderName, senderAvatar, isO
         displayedMessages.add(messageId);
     }
 
-    console.log("Displaying message:", message, "from:", senderName, "isOutgoing:", isOutgoing, "type:", type);
     const messageElement = document.createElement('div');
     if (type === "system") {
         messageElement.classList.add('message', 'system');
