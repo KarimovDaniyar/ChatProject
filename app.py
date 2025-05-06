@@ -13,7 +13,7 @@ import sqlite3
 import shutil
 # Обновляем импорты из database
 from database import (
-    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_online_users_list, get_or_create_one_on_one_chat, init_db, create_user, update_user_activity, verify_password, get_user,
+    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_groups_for_admin, get_online_users_list, get_or_create_one_on_one_chat, init_db, create_user, update_user_activity, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
     add_contact, get_contacts, search_users, mark_message_as_read
 )
@@ -982,3 +982,23 @@ async def admin_online(start: str, end: str, admin=Depends(get_current_admin)):
 async def admin_count_chats(admin=Depends(get_current_admin)):
     count = count_all_chats()
     return {"count": count}
+@app.get("/admin/groups")
+async def admin_list_groups(admin=Depends(get_current_admin)):
+    return get_groups_for_admin()
+
+@app.delete("/admin/groups/{group_id}")
+async def admin_delete_group(group_id: int, admin=Depends(get_current_admin)):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Delete group members first due to FK constraints
+        cursor.execute("DELETE FROM chat_members WHERE chat_id = ?", (group_id,))
+        # Delete the group chat itself
+        cursor.execute("DELETE FROM chats WHERE id = ? AND is_group = TRUE", (group_id,))
+        conn.commit()
+        return {"detail": f"Group {group_id} deleted"}
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete group: {e}")
+    finally:
+        conn.close()

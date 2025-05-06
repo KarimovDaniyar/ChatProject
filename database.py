@@ -424,3 +424,11 @@ def count_all_chats()-> int:
     row = cursor.fetchone()
     conn.close()
     return row[0]
+
+def get_groups_for_admin()->list:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM chats WHERE is_group = TRUE")
+    groups = cursor.fetchall()
+    conn.close()
+    return [dict(group) for group in groups]
