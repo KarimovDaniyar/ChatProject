@@ -1,90 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <title>Admin Panel</title>
-  <style>
-    body {
-      background: #222;
-      color: white;
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      height: 100vh;
-    }
-    nav {
-      width: 180px;
-      background: #111;
-      display: flex;
-      flex-direction: column;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-    nav button {
-      background: #333;
-      border: none;
-      color: white;
-      padding: 12px 20px;
-      margin-bottom: 10px;
-      cursor: pointer;
-      font-size: 16px;
-      text-align: left;
-      border-radius: 4px;
-      transition: background 0.3s;
-    }
-    nav button:hover, nav button.active {
-      background: #e74c3c;
-    }
-    main {
-      flex-grow: 1;
-      padding: 20px;
-      overflow-y: auto;
-    }
-    h1 {
-      margin-top: 0;
-    }
-    section {
-      display: none;
-    }
-    section.active {
-      display: block;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      border: 1px solid #444;
-      padding: 8px;
-      text-align: left;
-    }
-    button.delete-btn {
-      background: #e74c3c;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      cursor: pointer;
-      border-radius: 3px;
-      transition: background 0.3s;
-    }
-    button.delete-btn:hover {
-      background: #c0392b;
-    }
-    input, button[type="submit"] {
-      padding: 6px;
-      margin-right: 10px;
-      border-radius: 3px;
-      border: 1px solid #555;
-      background: #333;
-      color: white;
-    }
-    #chat-count {
-      margin-top: 10px;
-      font-weight: bold;
-    }
-  </style>
-</head>
+  <head>
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+  </head>
 <body>
   <nav>
     <button id="btn-users" class="active">Users</button>
