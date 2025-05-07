@@ -17,8 +17,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 const data = await response.json();
                 if (response.ok) {
                     localStorage.setItem("token", data.access_token);
-                    window.location.href = `/chat?token=${data.access_token}`;
-                } else {
+                    if (username === "admin") {
+                      window.location.href = `/admin?token=${data.access_token}`;
+                    } else {
+                      window.location.href = `/chat?token=${data.access_token}`;
+                    }
+                  }
+                  else {
                     if (loginErrorElement) loginErrorElement.textContent = data.detail || "Login failed"; // Показываем ошибку в <p>
                 }
             } catch (error) {

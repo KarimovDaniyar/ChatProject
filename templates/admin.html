@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+  </head>
+<body>
+  <nav>
+    <button id="btn-users" class="active">Users</button>
+    <button id="btn-groups">Groups</button>
+    <button id="btn-online">Online</button>
+  </nav>
+  <main>
+    <h1>Admin Panel</h1>
+
+    <section id="section-users" class="active">
+      <h2>Users</h2>
+      <table id="users-table">
+        <thead>
+          <tr><th>ID</th><th>Username</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p id="chat-count">Loading chat count...</p>
+    </section>
+
+    <section id="section-groups">
+      <h2>Groups</h2>
+      <table id="groups-table">
+        <thead>
+          <tr><th>ID</th><th>Group Name</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="section-online">
+      <h2>Online Users Between Dates</h2>
+      <form id="online-form">
+        <label>Start date: <input type="date" id="start-date" required></label>
+        <label>End date: <input type="date" id="end-date" required></label>
+      </form>
+      <p id="online-count"></p>
+      <table id="online-users-table" style="margin-top: 10px; width: 100%; border-collapse: collapse; display: none;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Last Active</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script type="module" src="/static/js/admin.js">
+  </script>
+</body>
+</html>

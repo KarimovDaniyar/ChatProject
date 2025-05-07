@@ -13,7 +13,7 @@ import sqlite3
 import shutil
 # Обновляем импорты из database
 from database import (
-    add_group_members, create_group_chat, get_db, get_or_create_one_on_one_chat, init_db, create_user, verify_password, get_user,
+    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_groups_for_admin, get_online_users_list, get_or_create_one_on_one_chat, init_db, create_user, update_user_activity, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
     add_contact, get_contacts, search_users, mark_message_as_read
 )
@@ -340,11 +340,21 @@ async def resend_verification_code(resend: ResendCode):
 
 @app.post("/login")
 async def login(user: UserLogin):
+    if user.username == "admin" and user.password == "123":
+        access_token = create_access_token(data={"user_id": 0, "username": "admin", "is_admin": True})
+        return {"access_token": access_token, "token_type": "bearer"}
+    
     db_user = get_user("username", user.username)
     if not db_user or not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = create_access_token(data={"user_id": db_user["id"]})
+    access_token = create_access_token(data={"user_id": db_user["id"], "is_admin": False})
     return {"access_token": access_token, "token_type": "bearer"}
+
+async def get_current_admin(token: str = Depends(oauth2_scheme)):
+    payload = decode_access_token(token)
+    if not payload or not payload.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return payload
 
 @app.get("/logout")
 async def logout(token: Optional[str] = Query(None)):
@@ -463,10 +473,12 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
 
     await websocket.accept()
     await manager.connect(websocket, chat_id, user)
+    update_user_activity(user["id"])
     try:
         while True:
             data = await websocket.receive_json()
             content = data.get("content")
+            update_user_activity(user["id"])
             if content:
                 message_id = create_message(chat_id, user["id"], content)
                 # Fetch the newly created message to get receiver_id
@@ -943,3 +955,57 @@ async def refactor_message_endpoint(message_id: int, payload: dict = Body(...), 
     # Broadcast update via WebSocket
     await manager.broadcast({"type": "message_refactor", "message_id": message_id, "new_content": new_text}, chat_id)
     return {"detail": "Message updated"}
+
+@app.get("/admin", response_class=HTMLResponse)
+async def serve_admin(token: str = Query(...)):
+    payload = decode_access_token(token)
+    if not payload or not payload.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    file_path = os.path.join(BASE_DIR, "templates", "admin.html")
+    with open(file_path, encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/admin/users")
+async def admin_list_users(admin=Depends(get_current_admin)):
+    users = get_all_users()
+    return users
+
+
+@app.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: int, admin=Depends(get_current_admin)):
+    delete_user(user_id)
+    return {"detail": f"User {user_id} deleted"}
+
+@app.get("/admin/online")
+async def admin_online(start: str, end: str, admin=Depends(get_current_admin)):
+    online_count = count_online_users(start, end)
+    online_users = get_online_users_list(start, end)
+    return {
+        "online_count": online_count,
+        "online_users": online_users
+    }
+
+@app.get("/admin/count_chats")
+async def admin_count_chats(admin=Depends(get_current_admin)):
+    count = count_all_chats()
+    return {"count": count}
+@app.get("/admin/groups")
+async def admin_list_groups(admin=Depends(get_current_admin)):
+    return get_groups_for_admin()
+
+@app.delete("/admin/groups/{group_id}")
+async def admin_delete_group(group_id: int, admin=Depends(get_current_admin)):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Delete group members first due to FK constraints
+        cursor.execute("DELETE FROM chat_members WHERE chat_id = ?", (group_id,))
+        # Delete the group chat itself
+        cursor.execute("DELETE FROM chats WHERE id = ? AND is_group = TRUE", (group_id,))
+        conn.commit()
+        return {"detail": f"Group {group_id} deleted"}
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete group: {e}")
+    finally:
+        conn.close()
