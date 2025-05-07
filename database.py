@@ -48,6 +48,7 @@ def init_db():
             content TEXT NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             status INTEGER DEFAULT 0,
+            is_changed INTEGER DEFAULT 0,
             FOREIGN KEY (chat_id) REFERENCES chats(id),
             FOREIGN KEY (sender_id) REFERENCES users(id),
             FOREIGN KEY (receiver_id) REFERENCES users(id)
@@ -200,7 +201,7 @@ def get_messages(chat_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, m.status, u.username as sender_username, u.avatar as sender_avatar
+        SELECT m.id, m.sender_id, m.receiver_id, m.content, m.timestamp, m.status, m.is_changed,  u.username as sender_username, u.avatar as sender_avatar
         FROM messages m
         JOIN users u ON m.sender_id = u.id
         WHERE m.chat_id = ?

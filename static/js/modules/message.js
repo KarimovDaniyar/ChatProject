@@ -61,7 +61,8 @@ export async function loadMessages() {
                 isOutgoing,
                 msg.timestamp,
                 "message",
-                msg.status
+                msg.status,
+                msg.is_changed
             );
             // Если входящее и не прочитано — добавить в список для отметки
             if (!isOutgoing && msg.status === 0) {
@@ -139,7 +140,7 @@ export async function sendMessage(message, mediaFiles = []) {
     }
 }
 
-export function displayMessage(messageId, message, senderName, senderAvatar, isOutgoing, timestamp, type, status) {
+export function displayMessage(messageId, message, senderName, senderAvatar, isOutgoing, timestamp, type, status, is_changed) {
     if (messageId && displayedMessages.has(messageId)) {
         console.log("Message already displayed, skipping:", messageId);
         return;
@@ -185,6 +186,11 @@ export function displayMessage(messageId, message, senderName, senderAvatar, isO
                 statusIcon = `<span class="message-status" title="Delivered"><ion-icon name="checkmark-outline" style="color: #b0b0b0; font-size: 18px; vertical-align: middle;"></ion-icon></span>`;
             }
         }
+        
+        // Add the changed indicator if is_changed is true
+        const changedIndicator = is_changed ? 
+            `<span class="message-edited" style="font-size: 12px; color: #a0a0a0; margin-right: 5px;">changed</span>` : '';
+        
         messageElement.innerHTML = `
             <div class="message-avatar">
                 <img src="${senderAvatar}" alt="${senderName}">
@@ -194,6 +200,7 @@ export function displayMessage(messageId, message, senderName, senderAvatar, isO
                 ${mediaHTML}
                 ${textHTML}
                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                    ${changedIndicator}
                     <span class="message-time">${formatTimestamp(timestamp)}</span>
                     ${statusIcon}
                 </div>
@@ -220,7 +227,7 @@ export async function editMessage(messageId, newContent) {
         if (!response.ok) {
             throw new Error('Failed to update message');
         }
-        
+                
         return true;
     } catch (error) {
         console.error('Error updating message:', error);
