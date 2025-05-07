@@ -176,13 +176,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'DELETE',
                     headers: getAuthHeaders()
                 });
+                
                 if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || 'Ошибка при удалении участника');
+                    let errorMessage = 'Ошибка при удалении участника';
+                    try {
+                        const errData = await res.json();
+                        if (errData.detail) {
+                            errorMessage = errData.detail;
+                        }
+                    } catch (parseError) {
+                        // If JSON parsing fails, use status text instead
+                        errorMessage = `Error: ${res.status} ${res.statusText}`;
+                    }
+                    throw new Error(errorMessage);
                 }
+                
                 showNotification(`Пользователь "${username}" успешно удалён из группы`);
                 await loadGroupMembers(currentChatId);
-
             } catch (e) {
                 showNotification(`Ошибка: ${e.message}`);
             } finally {

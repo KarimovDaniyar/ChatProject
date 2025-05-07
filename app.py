@@ -172,7 +172,7 @@ class MessageCreate(BaseModel):
 
 # Модель для добавления контактов
 class ContactsAdd(BaseModel):
-    contact_ids: List[int]
+    user_ids: List[int]
 
 # Модель для запроса верификации email
 class EmailVerification(BaseModel):
@@ -657,6 +657,11 @@ async def add_group_members_endpoint(
 ):
     try:
         add_group_members(group_id, members.user_ids)
+        
+        # Send notifications to all added members
+        for user_id in members.user_ids:
+            await notif_manager.send(user_id, {"type": "contacts_update"})
+            
         return {"status": "Members added successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to add members: {str(e)}")
