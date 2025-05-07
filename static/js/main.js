@@ -402,6 +402,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 const p = bubble.querySelector('p');
                 if (p) {
                     p.textContent = newContent;
+                    const statusContainer = bubble.querySelector('.message-time').parentNode;
+                    // Check if the edited indicator already exists
+                    if (!statusContainer.querySelector('.message-edited')) {
+                        // Create and add the "changed" indicator
+                        const editedIndicator = document.createElement('span');
+                        editedIndicator.className = 'message-edited';
+                        editedIndicator.textContent = 'changed';
+                        editedIndicator.style.fontSize = '12px';
+                        editedIndicator.style.color = '#a0a0a0';
+                        editedIndicator.style.marginRight = '5px';
+                        statusContainer.prepend(editedIndicator);
+                    }
                 }
             }
         },

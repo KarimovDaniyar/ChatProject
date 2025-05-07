@@ -929,10 +929,12 @@ async def refactor_message_endpoint(message_id: int, payload: dict = Body(...), 
     if not new_text:
         conn.close()
         raise HTTPException(status_code=400, detail="New message content required")
-    cursor.execute("UPDATE messages SET content = ? WHERE id = ?", (new_text, message_id))
+    
+    # Update the query to set is_changed flag to 1
+    cursor.execute("UPDATE messages SET content = ?, is_changed = 1 WHERE id = ?", (new_text, message_id))
+    
     conn.commit()
     conn.close()
     # Broadcast update via WebSocket
-# Broadcast update via WebSocket
     await manager.broadcast({"type": "message_refactor", "message_id": message_id, "new_content": new_text}, chat_id)
     return {"detail": "Message updated"}
