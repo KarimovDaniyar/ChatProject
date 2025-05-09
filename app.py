@@ -170,9 +170,10 @@ class MessageCreate(BaseModel):
     chat_id: int
     content: str
 
-# Модель для добавления контактов
+# Модель для добавления контактовclass 
 class ContactsAdd(BaseModel):
-    user_ids: List[int]
+    contact_ids: List[int]
+
 
 # Модель для запроса верификации email
 class EmailVerification(BaseModel):
