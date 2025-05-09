@@ -13,7 +13,7 @@ import sqlite3
 import shutil
 # Обновляем импорты из database
 from database import (
-    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_groups_for_admin, get_online_users_list, get_or_create_one_on_one_chat, init_db, create_user, update_user_activity, verify_password, get_user,
+    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_groups_for_admin, get_online_users_list, get_or_create_one_on_one_chat, get_user_stats, init_db, create_user, update_user_activity, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
     add_contact, get_contacts, search_users, mark_message_as_read
 )
@@ -1009,3 +1009,10 @@ async def admin_delete_group(group_id: int, admin=Depends(get_current_admin)):
         raise HTTPException(status_code=500, detail=f"Failed to delete group: {e}")
     finally:
         conn.close()
+
+@app.get("/user/{user_id}/stats")
+async def user_stats(user_id: int):
+    stats = get_user_stats(user_id)
+    if stats is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return stats

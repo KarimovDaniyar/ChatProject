@@ -1,6 +1,6 @@
 from datetime import datetime
 import sqlite3
-from typing import List
+from typing import List, Optional
 from passlib.context import CryptContext
 
 DATABASE = 'chat.db'
@@ -433,3 +433,38 @@ def get_groups_for_admin()->list:
     groups = cursor.fetchall()
     conn.close()
     return [dict(group) for group in groups]
+
+def get_user_stats(user_id: int) -> Optional[dict]:
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, username, avatar FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+    if not user:
+        conn.close()
+        return None
+
+    cursor.execute("SELECT COUNT(*) FROM contacts WHERE user_id = ?", (user_id,))
+    contacts_count = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM chats c
+        JOIN chat_members cm ON c.id = cm.chat_id
+        WHERE cm.user_id = ? AND c.is_group = TRUE
+    """, (user_id,))
+    groups_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM messages WHERE sender_id = ?", (user_id,))
+    messages_count = cursor.fetchone()[0]
+
+    conn.close()
+
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "avatar": user["avatar"] or "/static/images/avatar.png",
+        "contacts_count": contacts_count,
+        "groups_count": groups_count,
+        "messages_count": messages_count
+    }

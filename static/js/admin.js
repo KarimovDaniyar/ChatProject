@@ -102,14 +102,22 @@ window.addEventListener('DOMContentLoaded', () => {
     const tbody = document.querySelector('#users-table tbody');
     tbody.innerHTML = '';
     users.forEach(user => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${user.id}</td>
-        <td>${user.username}</td>
-        <td><button class="delete-btn" data-id="${user.id}">Delete</button></td>
-      `;
-      tbody.appendChild(tr);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${user.id}</td>
+      <td class="username-cell" style="cursor:pointer; text-decoration:underline;">${user.username}</td>
+      <td><button class="delete-btn" data-id="${user.id}">Delete</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.username-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const userId = cell.parentElement.querySelector('td:first-child').textContent;
+      showUserStats(userId);
     });
+  });
+
 
     tbody.querySelectorAll('button.delete-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -210,3 +218,60 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
+async function showUserStats(userId) {
+    try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/user/${userId}/stats`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch user stats');
+        const data = await res.json();
+
+        // Создаем модальное окно (если еще нет)
+        let modal = document.getElementById('user-stats-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'user-stats-modal';
+
+            modal.innerHTML = `
+            <div id="user-stats-modal">
+            <button id="close-user-stats">&times;</button>
+            <div class="modal-header">
+              <img id="user-stats-avatar" src="" alt="Avatar">
+              <h3 id="user-stats-username"></h3>
+            </div>
+            <div class="user-stats-info">
+            <div class="info-block">
+              <strong>Contacts:</strong> <span id="user-stats-contacts"></span>
+            </div>
+            <div class="info-block">
+              <strong>Groups:</strong> <span id="user-stats-groups"></span>
+            </div>
+            <div class="info-block">
+              <strong>Messages sent:</strong> <span id="user-stats-messages"></span>
+            </div>
+          </div>
+            </div>
+          `;
+
+            document.body.appendChild(modal);
+
+            document.getElementById('close-user-stats').addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+
+        // Заполняем данные
+        modal.querySelector('#user-stats-avatar').src = data.avatar;
+        modal.querySelector('#user-stats-username').textContent = data.username;
+        modal.querySelector('#user-stats-contacts').textContent = data.contacts_count;
+        modal.querySelector('#user-stats-groups').textContent = data.groups_count;
+        modal.querySelector('#user-stats-messages').textContent = data.messages_count;
+
+        modal.style.display = 'block';
+
+    } catch (e) {
+        console.error(e);
+        alert('Не удалось загрузить статистику пользователя');
+    }
+}
