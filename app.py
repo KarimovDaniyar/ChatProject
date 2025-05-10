@@ -13,7 +13,7 @@ import sqlite3
 import shutil
 # Обновляем импорты из database
 from database import (
-    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_groups_for_admin, get_online_users_list, get_or_create_one_on_one_chat, get_user_stats, init_db, create_user, update_user_activity, verify_password, get_user,
+    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_groups_for_admin, get_online_users_list, get_or_create_one_on_one_chat, get_unread_counts_by_groups, get_user_stats, init_db, create_user, update_user_activity, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
     add_contact, get_contacts, search_users, mark_message_as_read
 )
@@ -1024,10 +1024,13 @@ async def unread_from_senders(user: dict = Depends(get_current_user)):
     cursor = conn.cursor()
     cursor.execute('''
         SELECT sender_id, COUNT(*) AS unread_count
-        FROM messages
-        WHERE receiver_id = ?
-          AND status = 0
+        FROM messages m
+        JOIN chats c ON m.chat_id = c.id
+        WHERE m.receiver_id = ?
+        AND m.status = 0
+        AND c.is_group = 0
         GROUP BY sender_id
+
     ''', (user["id"],))
     rows = cursor.fetchall()
     conn.close()
@@ -1045,3 +1048,12 @@ async def mark_chat_messages_read(chat_id: int, user: dict = Depends(get_current
     conn.commit()
     conn.close()
     return {"detail": "Messages marked as read"}
+
+@app.get("/groups/unread")
+async def unread_from_groups(user: dict = Depends(get_current_user)):
+    conn = get_db()
+    try:
+        unread_counts = get_unread_counts_by_groups(user["id"], conn)
+    finally:
+        conn.close()
+    return unread_counts

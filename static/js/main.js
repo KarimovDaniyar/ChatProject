@@ -1354,77 +1354,98 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     async function loadGroups() {
-        try {
-            const response = await fetch("/user/groups", {
-                headers: getAuthHeaders()
-            });
-            if (!response.ok) throw new Error("Не удалось загрузить группы");
-            const groups = await response.json();
-    
-            groups.forEach(group => {
-                if (contactsList.querySelector(`.contact.group[data-group-id="${group.id}"]`)) {
-                    return;
-                }
-            
-                const groupElement = document.createElement('div');
-                groupElement.classList.add('contact', 'group');
-                groupElement.setAttribute('data-group-id', group.id);
-                groupElement.innerHTML = `
-                    <div class="contact-avatar">
-                        <img src="${group.avatar || '/static/images/group.png'}" alt="${group.name}">
-                    </div>
-                    <div class="contact-info">
-                        <h3>${group.name}</h3>
-                        <p>Group</p>
-                    </div>
-                `;
-                contactsList.appendChild(groupElement);
-            
-                groupElement.addEventListener('click', async function() {
-                    document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
-                    this.classList.add('active');
-            
-                    currentChatId = group.id;
-                    currentContactUsername = group.name;
-            
-                    document.querySelector('.current-contact .contact-info h3').textContent = group.name;
-                    document.querySelector('.current-contact .contact-info p').textContent = 'Group';
-                    const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
-                    if (headerAvatar) {
-                        headerAvatar.src = group.avatar || '/static/images/group.png';
-                        headerAvatar.style.visibility = 'visible';
-                    }
-            
-                    const groupNameElement = document.getElementById('group-name');
-                    if (groupNameElement) {
-                        groupNameElement.textContent = group.name;
-                    }
-                    const groupAvatarImg = document.querySelector('#group-user-menu .profile-avatar img');
-                    if (groupAvatarImg) {
-                        groupAvatarImg.src = group.avatar || '/static/images/group.png';
-                    }
-            
-                    updateChatState({
-                        chatId: currentChatId,
-                        contactAvatar: group.avatar || '/static/images/group.png'
-                    });
-                    
-                    updateMessageState({
-                        currentChatId: currentChatId,
-                        currentContactAvatar: group.avatar || '/static/images/group.png'
-                    });
+    try {
+        const response = await fetch("/user/groups", {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error("Не удалось загрузить группы");
+        const groups = await response.json();
 
-                    loadMessages();
-                    enableMessaging();
-                    loadGroupMembers(currentChatId);
+        // Запрашиваем количество непрочитанных сообщений для групп
+        const unreadResp = await fetch('/groups/unread', {
+            headers: getAuthHeaders()
+        });
+        if (!unreadResp.ok) throw new Error('Не удалось получить количество непрочитанных сообщений для групп');
+        const unreadCounts = await unreadResp.json(); // ожидается объект { groupId: count, ... }
+
+        groups.forEach(group => {
+            if (contactsList.querySelector(`.contact.group[data-group-id="${group.id}"]`)) {
+                return;
+            }
+
+            const unreadCount = unreadCounts[group.id] || 0;
+
+            const groupElement = document.createElement('div');
+            groupElement.classList.add('contact', 'group');
+            groupElement.setAttribute('data-group-id', group.id);
+            groupElement.innerHTML = `
+                <div class="contact-avatar">
+                    <img src="${group.avatar || '/static/images/group.png'}" alt="${group.name}">
+                </div>
+                <div class="contact-info" style="position: relative;">
+                    <h3 style="display: inline-block;">${group.name} ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount}</span>` : ''}</h3>
+                    <p>Group</p>
+                </div>
+            `;
+            contactsList.appendChild(groupElement);
+
+            groupElement.addEventListener('click', async function() {
+                document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+
+                currentChatId = group.id;
+                currentContactUsername = group.name;
+                currentContactAvatar = group.avatar || '/static/images/group.png';
+
+                document.querySelector('.current-contact .contact-info h3').textContent = group.name;
+                document.querySelector('.current-contact .contact-info p').textContent = 'Group';
+                const headerAvatar = document.querySelector('.current-contact .contact-avatar img');
+                if (headerAvatar) {
+                    headerAvatar.src = currentContactAvatar;
+                    headerAvatar.style.visibility = 'visible';
+                }
+
+                const groupNameElement = document.getElementById('group-name');
+                if (groupNameElement) {
+                    groupNameElement.textContent = group.name;
+                }
+                const groupAvatarImg = document.querySelector('#group-user-menu .profile-avatar img');
+                if (groupAvatarImg) {
+                    groupAvatarImg.src = currentContactAvatar;
+                }
+
+                updateChatState({
+                    chatId: currentChatId,
+                    contactAvatar: currentContactAvatar
                 });
+
+                updateMessageState({
+                    currentChatId: currentChatId,
+                    currentContactAvatar: currentContactAvatar
+                });
+
+                // Помечаем сообщения группы как прочитанные
+                await fetch(`/messages/${currentChatId}/mark-read`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+
+                // Обновляем список групп и контактов, чтобы убрать бейджи
+                await loadGroups();
+                await loadContacts();
+
+                loadMessages();
+                enableMessaging();
+                loadGroupMembers(currentChatId);
             });
-            
-        } catch (error) {
-            console.error("Ошибка загрузки групп:", error);
-            showNotification("Не удалось загрузить группы");
-        }
+        });
+
+    } catch (error) {
+        console.error("Ошибка загрузки групп:", error);
+        showNotification("Не удалось загрузить группы");
     }
+}
+
     
     
     function fetchEmojis() {

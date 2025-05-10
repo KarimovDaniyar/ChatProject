@@ -490,3 +490,19 @@ def get_unread_counts_for_user(user_id: int) -> dict:
     rows = cursor.fetchall()
     conn.close()
     return {row['chat_id']: row['unread_count'] for row in rows}
+
+def get_unread_counts_by_groups(user_id: int, conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT chat_id, COUNT(*) AS unread_count
+        FROM messages
+        WHERE receiver_id = ?
+        AND status = 0
+        AND chat_id IN (
+            SELECT id FROM chats WHERE is_group = TRUE
+        )
+        GROUP BY chat_id
+
+    ''', (user_id,))
+    rows = cursor.fetchall()
+    return {row["chat_id"]: row["unread_count"] for row in rows}
