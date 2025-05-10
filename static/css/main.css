@@ -1719,5 +1719,39 @@ body {
 #delete-message-btn,
 #translate-message-btn,
 #revert-message-btn {
-    display: flex; /* This will be overridden by .hidden when applied */
+    display: flex;
+}
+
+.unread-badge {
+    background-color: #3B82F6;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 12px;
+    padding: 2px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+    min-width: 20px;
+    text-align: center;
+    display: inline-block;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+}
+
+.contact.unread .contact-info h3 {
+    color: #3B82F6; 
+    font-weight: 700;
+}
+
+
+.contact.unread .contact-info p {
+    color: #2563EB; 
+    font-weight: 600;
+}
+
+.contact.unread {
+    background-color: rgba(59, 130, 246, 0.1); 
+}
+
+.contact.unread:hover {
+    background-color: rgba(59, 130, 246, 0.15);
 }

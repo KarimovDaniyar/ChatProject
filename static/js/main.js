@@ -279,112 +279,153 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function loadContacts() {
-        try {
-            console.log("Loading contacts...");
-            const response = await fetch("/contacts", {
-                headers: getAuthHeaders()
-            });
-            if (!response.ok) {
-                if (response.status === 401) {
-                    console.log("Unauthorized, redirecting to login");
-                    removeToken();
-                    window.location.href = "/";
-                    return;
-                }
-                throw new Error(`Failed to fetch contacts: ${response.status} ${response.statusText}`);
-            }
-            const contacts = await response.json();
-            contactsList.innerHTML = "";
-    
-            if (contacts.length === 0) {
-                const emptyMessage = document.createElement('div');
-                emptyMessage.classList.add('empty-contacts');
-                emptyMessage.innerHTML = `
-                    <div class="empty-contacts-message">
-                        <p>You don't have any contacts yet</p>
-                        <p>Click the "Add Contact" button in the menu</p>
-                    </div>
-                `;
-                contactsList.appendChild(emptyMessage);
-                await loadGroups();
+    try {
+        console.log("Loading contacts...");
+        const response = await fetch("/contacts", {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) {
+            if (response.status === 401) {
+                console.log("Unauthorized, redirecting to login");
+                removeToken();
+                window.location.href = "/";
                 return;
             }
-    
-            const previewPromises = [];
-            contacts.forEach(contact => {
-                const contactElement = document.createElement('div');
-                contactElement.classList.add('contact');
-                contactElement.setAttribute('data-username', contact.username);
-                contactElement.setAttribute('data-id', contact.id);
-                contactElement.innerHTML = `
-                    <div class="contact-avatar">
-                        <img src="${contact.avatar || '/static/images/avatar.png'}" alt="${contact.username}">
-                    </div>
-                    <div class="contact-info">
-                        <h3>${contact.username}</h3>
-                        <p></p>
-                    </div>
-                    <div class="contact-status offline"></div>
-                `;
-                contactsList.appendChild(contactElement);
-                previewPromises.push(fetchAndUpdateContactPreview(contactElement, contact.id));
-            });
-            await Promise.all(previewPromises);
-    
-            const contactElements = document.querySelectorAll('.contact');
-            contactElements.forEach(contact => {
-                contact.addEventListener('click', async function() {
-                    contactElements.forEach(c => c.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    const contactName = this.querySelector('.contact-info h3').textContent;
-                    const contactImg = this.querySelector('.contact-avatar img').src;
-                    const isOnline = this.querySelector('.contact-status.online') !== null;
-                    const contactId = this.getAttribute('data-id');
-                    
-                    currentContactAvatar = contactImg;
-                    
-                    try {
-                        const response = await fetch(`/chat/one-on-one/${contactId}`, {
-                            headers: getAuthHeaders()
-                        });
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(`Failed to get chat: ${errorData.detail || response.statusText}`);
-                        }
-                        const data = await response.json();
-                        currentChatId = data.chat_id;
-                        
-                        document.querySelector('.current-contact .contact-info h3').textContent = contactName;
-                        document.querySelector('.current-contact .contact-avatar img').src = contactImg;
-                        
-                        updateChatState({
-                            chatId: currentChatId,
-                            contactAvatar: currentContactAvatar
-                        });
-                        
-                        updateMessageState({
-                            currentChatId: currentChatId,
-                            currentContactAvatar: currentContactAvatar
-                        });
-
-                        loadMessages();
-                        enableMessaging();
-                    } catch (error) {
-                        console.error("Error fetching chat ID:", error);
-                        showNotification(`Не удалось открыть чат: ${error.message}`);
-                        currentChatId = null;
-                        disableMessaging();
-                    }
-                });
-            });
-    
-            console.log("Contacts loaded successfully");
-        } catch (error) {
-            console.error("Error loading contacts:", error);
+            throw new Error(`Failed to fetch contacts: ${response.status} ${response.statusText}`);
         }
-        await loadGroups();
+        const contacts = await response.json();
+        contactsList.innerHTML = "";
+
+        if (contacts.length === 0) {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.classList.add('empty-contacts');
+            emptyMessage.innerHTML = `
+                <div class="empty-contacts-message">
+                    <p>You don't have any contacts yet</p>
+                    <p>Click the "Add Contact" button in the menu</p>
+                </div>
+            `;
+            contactsList.appendChild(emptyMessage);
+            await loadGroups();
+            return;
+        }
+
+        // Создаём элементы контактов
+        const previewPromises = [];
+        contacts.forEach(contact => {
+            const contactElement = document.createElement('div');
+            contactElement.classList.add('contact');
+            contactElement.setAttribute('data-username', contact.username);
+            contactElement.setAttribute('data-id', contact.id);
+            contactElement.innerHTML = `
+                <div class="contact-avatar">
+                    <img src="${contact.avatar || '/static/images/avatar.png'}" alt="${contact.username}">
+                </div>
+                <div class="contact-info" style="position: relative;">
+                    <h3 style="display: inline-block;">${contact.username}</h3>
+                    <p></p>
+                </div>
+                <div class="contact-status offline"></div>
+            `;
+            contactsList.appendChild(contactElement);
+            previewPromises.push(fetchAndUpdateContactPreview(contactElement, contact.id));
+        });
+        await Promise.all(previewPromises);
+
+        // Запрашиваем количество непрочитанных сообщений от отправителей
+        const unreadResp = await fetch('/contacts/unread_from_senders', {
+            headers: getAuthHeaders()
+        });
+        if (!unreadResp.ok) throw new Error('Failed to fetch unread counts');
+        const unreadCounts = await unreadResp.json();
+
+        // Добавляем бейджи с количеством непрочитанных сообщений
+        contacts.forEach(contact => {
+            const contactElement = contactsList.querySelector(`.contact[data-id="${contact.id}"]`);
+            if (!contactElement) return;
+
+            const count = unreadCounts[contact.id] || 0;
+            let badge = contactElement.querySelector('.unread-badge');
+
+            if (count > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.classList.add('unread-badge');
+                    // Стили бейджа (красный круг с белым числом
+                    contactElement.querySelector('.contact-info h3').style.position = 'relative';
+                    contactElement.querySelector('.contact-info h3').appendChild(badge);
+                }
+                badge.textContent = count;
+            } else if (badge) {
+                badge.remove();
+            }
+        });
+
+        // Остальной ваш существующий код для клика по контакту и загрузки чата
+        const contactElements = document.querySelectorAll('.contact');
+        contactElements.forEach(contact => {
+        contact.addEventListener('click', async function() {
+            contactElements.forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+
+            const contactName = this.querySelector('.contact-info h3').textContent;
+            const contactImg = this.querySelector('.contact-avatar img').src;
+            const contactId = this.getAttribute('data-id');
+
+            currentContactAvatar = contactImg;
+
+            try {
+                const response = await fetch(`/chat/one-on-one/${contactId}`, {
+                    headers: getAuthHeaders()
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to get chat: ${errorData.detail || response.statusText}`);
+                }
+                const data = await response.json();
+                currentChatId = data.chat_id;
+
+                // Помечаем сообщения как прочитанные
+                await fetch(`/messages/${currentChatId}/mark-read`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+
+                // Обновляем список контактов, чтобы убрать бейджи непрочитанных
+                await loadContacts();
+
+                document.querySelector('.current-contact .contact-info h3').textContent = contactName;
+                document.querySelector('.current-contact .contact-avatar img').src = contactImg;
+
+                updateChatState({
+                    chatId: currentChatId,
+                    contactAvatar: currentContactAvatar
+                });
+
+                updateMessageState({
+                    currentChatId: currentChatId,
+                    currentContactAvatar: currentContactAvatar
+                });
+
+                loadMessages();
+                enableMessaging();
+            } catch (error) {
+                console.error("Error fetching chat ID:", error);
+                showNotification(`Не удалось открыть чат: ${error.message}`);
+                currentChatId = null;
+                disableMessaging();
+            }
+        });
+    });
+
+
+        console.log("Contacts loaded successfully");
+    } catch (error) {
+        console.error("Error loading contacts:", error);
     }
+    await loadGroups();
+}
+
     
     initWebSocketModule({
         messageContainer: messageContainer,

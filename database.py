@@ -468,3 +468,25 @@ def get_user_stats(user_id: int) -> Optional[dict]:
         "groups_count": groups_count,
         "messages_count": messages_count
     }
+
+def get_unread_counts_for_user(user_id: int) -> dict:
+    """
+    Returns a dictionary mapping contact_id (or chat_id) to count of unread messages for that user.
+    For one-on-one chats, count unread messages where receiver_id = user_id and status = 0.
+    For groups, count unread messages in group chats where user is a member.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    # For one-on-one chats, count unread messages per contact
+    cursor.execute('''
+        SELECT m.chat_id, COUNT(*) as unread_count
+        FROM messages m
+        JOIN chat_members cm ON m.chat_id = cm.chat_id
+        WHERE cm.user_id = ?
+          AND m.receiver_id = ?
+          AND m.status = 0
+        GROUP BY m.chat_id
+    ''', (user_id, user_id))
+    rows = cursor.fetchall()
+    conn.close()
+    return {row['chat_id']: row['unread_count'] for row in rows}

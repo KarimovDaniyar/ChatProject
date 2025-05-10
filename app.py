@@ -1017,3 +1017,31 @@ async def user_stats(user_id: int):
     if stats is None:
         raise HTTPException(status_code=404, detail="User not found")
     return stats
+
+@app.get("/contacts/unread_from_senders")
+async def unread_from_senders(user: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT sender_id, COUNT(*) AS unread_count
+        FROM messages
+        WHERE receiver_id = ?
+          AND status = 0
+        GROUP BY sender_id
+    ''', (user["id"],))
+    rows = cursor.fetchall()
+    conn.close()
+    return {row["sender_id"]: row["unread_count"] for row in rows}
+
+@app.post("/messages/{chat_id}/mark-read")
+async def mark_chat_messages_read(chat_id: int, user: dict = Depends(get_current_user)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE messages
+        SET status = 1
+        WHERE chat_id = ? AND receiver_id = ? AND status = 0
+    """, (chat_id, user["id"]))
+    conn.commit()
+    conn.close()
+    return {"detail": "Messages marked as read"}
