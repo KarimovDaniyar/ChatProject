@@ -1482,10 +1482,6 @@ body {
         width: 80px;
     }
     
-    .contact-info, .user-name {
-        display: none;
-    }
-    
     .contact-avatar {
         margin: 0 auto;
     }
@@ -1754,4 +1750,36 @@ body {
 
 .contact.unread:hover {
     background-color: rgba(59, 130, 246, 0.15);
+}
+
+.toast-notification {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateY(100%);
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6); /* синий градиент */
+  color: #e0e7ff; /* светло-синий текст */
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  opacity: 0;
+  transition: 
+    opacity 0.4s ease,
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100000;
+  pointer-events: none;
+  user-select: none;
+  max-width: 70vw;
+  text-align: center;
+  box-shadow:
+    0 8px 24px rgba(59, 130, 246, 0.5),
+    0 0 12px rgba(147, 197, 253, 0.7);
+  border: 1px solid rgba(147, 197, 253, 0.4);
+}
+
+.toast-notification.visible {
+  transform: translate(-50%, -50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
 }

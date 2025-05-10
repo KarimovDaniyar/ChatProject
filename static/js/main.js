@@ -87,7 +87,34 @@ document.addEventListener('DOMContentLoaded', function() {
         name: 'You',
         avatar: '/static/images/avatar.png'
     };
-    
+    // Simple toast notification function
+function showNotification(message, duration = 3000) {
+  // Remove existing toast if any
+  const existingToast = document.querySelector('.toast-notification');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.textContent = message;
+
+  // Append to body
+  document.body.appendChild(toast);
+
+  // Show toast with animation
+  setTimeout(() => {
+    toast.classList.add('visible');
+  }, 10);
+
+  // Hide and remove after duration
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
 
     // Disable message input and buttons on initial load
     disableMessaging();
@@ -121,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
             members.forEach(member => {
                 const memberElement = document.createElement('div');
-                memberElement.classList.add('contactInGroupInfo');
+                memberElement.classList.add('contact','contactInGroupInfo');
                 memberElement.setAttribute('data-id', member.id);
     
                 const canRemove = currentUserId === currentGroupCreatorId && member.id !== currentUserId;
@@ -1361,12 +1388,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!response.ok) throw new Error("Не удалось загрузить группы");
         const groups = await response.json();
 
-        // Запрашиваем количество непрочитанных сообщений для групп
         const unreadResp = await fetch('/groups/unread', {
             headers: getAuthHeaders()
         });
         if (!unreadResp.ok) throw new Error('Не удалось получить количество непрочитанных сообщений для групп');
-        const unreadCounts = await unreadResp.json(); // ожидается объект { groupId: count, ... }
+        const unreadCounts = await unreadResp.json();
+
+        const activeGroupId = currentChatId;
 
         groups.forEach(group => {
             if (contactsList.querySelector(`.contact.group[data-group-id="${group.id}"]`)) {
@@ -1388,6 +1416,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
             contactsList.appendChild(groupElement);
+
+            if (group.id === activeGroupId) {
+                groupElement.classList.add('active');
+            }
 
             groupElement.addEventListener('click', async function() {
                 document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
@@ -1430,9 +1462,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: getAuthHeaders()
                 });
 
-                // Обновляем список групп и контактов, чтобы убрать бейджи
-                await loadGroups();
-                await loadContacts();
+                // НЕ вызывайте loadGroups() и loadContacts() здесь!
 
                 loadMessages();
                 enableMessaging();
@@ -1446,7 +1476,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 
-    
     
     function fetchEmojis() {
         emojiLoading.style.display = 'flex';
