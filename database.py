@@ -20,6 +20,14 @@ def init_db():
         )
     ''')
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            active_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    ''')
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -506,3 +514,45 @@ def get_unread_counts_by_groups(user_id: int, conn):
     ''', (user_id,))
     rows = cursor.fetchall()
     return {row["chat_id"]: row["unread_count"] for row in rows}
+def log_user_activity(user_id: int):
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    cursor.execute("""
+        INSERT INTO user_activity_log (user_id, active_at)
+        VALUES (?, ?)
+    """, (user_id, now))
+    conn.commit()
+    conn.close()
+    
+def get_user_active_dates(user_id: int, start: str, end: str) -> list[str]:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT DISTINCT DATE(active_at) as active_date
+        FROM user_activity_log
+        WHERE user_id = ? AND active_at BETWEEN ? AND ?
+        ORDER BY active_date DESC
+    """, (user_id, start, end))
+    rows = cursor.fetchall()
+    conn.close()
+    return [row['active_date'] for row in rows]
+
+def get_users_active_between(start: str, end: str) -> List[dict]:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.username, u.avatar, 
+       MAX(strftime('%Y-%m-%dT%H:%M:%fZ', ua.active_at)) AS last_active
+FROM user_activity_log ua
+JOIN users u ON ua.user_id = u.id
+WHERE ua.active_at BETWEEN ? AND ?
+GROUP BY u.id, u.username, u.avatar
+ORDER BY last_active DESC
+
+
+    """, (start, end))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]

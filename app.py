@@ -13,7 +13,7 @@ import sqlite3
 import shutil
 # Обновляем импорты из database
 from database import (
-    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_groups_for_admin, get_online_users_list, get_or_create_one_on_one_chat, get_unread_counts_by_groups, get_user_stats, init_db, create_user, update_user_activity, verify_password, get_user,
+    add_group_members, count_all_chats, count_online_users, create_group_chat, delete_user, get_db, get_groups_for_admin, get_online_users_list, get_or_create_one_on_one_chat, get_unread_counts_by_groups, get_user_stats, get_users_active_between, init_db, create_user, log_user_activity, update_user_activity, verify_password, get_user,
     create_message, get_messages, get_or_create_chat, get_all_users,
     add_contact, get_contacts, search_users, mark_message_as_read
 )
@@ -475,11 +475,13 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: int, user: dict = De
     await websocket.accept()
     await manager.connect(websocket, chat_id, user)
     update_user_activity(user["id"])
+    log_user_activity(user["id"])
     try:
         while True:
             data = await websocket.receive_json()
             content = data.get("content")
             update_user_activity(user["id"])
+            log_user_activity(user["id"])
             if content:
                 message_id = create_message(chat_id, user["id"], content)
                 # Fetch the newly created message to get receiver_id
@@ -1057,3 +1059,8 @@ async def unread_from_groups(user: dict = Depends(get_current_user)):
     finally:
         conn.close()
     return unread_counts
+
+@app.get("/admin/active-users")
+async def active_users_period(start: str, end: str, admin=Depends(get_current_admin)):
+    users = get_users_active_between(start, end)
+    return {"online_count": len(users), "online_users": users}

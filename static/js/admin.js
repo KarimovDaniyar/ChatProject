@@ -177,7 +177,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Fetch online users
   async function fetchOnlineUsers(start, end) {
-    const res = await fetch(`/admin/online?start=${start}&end=${end}`, {
+    const res = await fetch(`/admin/active-users?start=${start}&end=${end}`, {
       headers: { Authorization: 'Bearer ' + token }
     });
     if (!res.ok) {
