@@ -212,22 +212,50 @@ function handleNotificationMessage(data) {
     }
 }
 
+async function updateUnreadBadges() {
+    try {
+        const response = await fetch('/contacts/unread_from_senders', {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to fetch unread counts');
+        const unreadCounts = await response.json();
+
+        Object.entries(unreadCounts).forEach(([contactId, count]) => {
+            const contactElement = contactsList.querySelector(`.contact[data-id="${contactId}"]`);
+            if (!contactElement) return;
+
+            let badge = contactElement.querySelector('.unread-badge');
+            if (count > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.classList.add('unread-badge');
+                    contactElement.querySelector('.contact-info h3').style.position = 'relative';
+                    contactElement.querySelector('.contact-info h3').appendChild(badge);
+                }
+                badge.textContent = count;
+            } else if (badge) {
+                badge.remove();
+            }
+        });
+    } catch (e) {
+        console.error('Error updating unread badges:', e);
+    }
+}
 /**
  * Handle new message notifications (when not in the chat)
  * @param {Object} data - Notification data
  */
-function handleNewMessageNotification(data) {
+async function handleNewMessageNotification(data) {
     const contactId = data.sender_id;
     const contactElement = contactsList.querySelector(`.contact[data-id="${contactId}"]`);
-    
-    if (contactElement) {
-        // Move chat to top of the list
-        contactsList.prepend(contactElement);
-        
-        // Update preview with notification content
-        updateContactPreviewFromNotification(contactElement, data.content);
-    }
+    if (!contactElement) return;
+
+    contactsList.prepend(contactElement);
+    updateContactPreviewFromNotification(contactElement, data.content);
+
+    await updateUnreadBadges();
 }
+
 
 /**
  * Update contact preview from notification
