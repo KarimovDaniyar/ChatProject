@@ -1725,10 +1725,10 @@ body {
     font-weight: bold;
     border-radius: 12px;
     padding: 2px 6px;
-    margin-left: 6px;
+    margin-left: 180px;
     vertical-align: middle;
     min-width: 20px;
-    text-align: center;
+    text-align: right;
     display: inline-block;
     box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
 }
