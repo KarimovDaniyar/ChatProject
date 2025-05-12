@@ -429,7 +429,7 @@ def count_online_users(start: str, end: str) -> int:
 def count_all_chats()-> int:
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*)/2 FROM chats WHERE is_group = 0")
+    cursor.execute("SELECT COUNT(*) FROM chats WHERE is_group = 0")
     row = cursor.fetchone()
     conn.close()
     return row[0]
